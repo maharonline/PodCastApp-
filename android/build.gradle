@@ -19,3 +19,15 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+// allprojects {
+//     repositories {
+//         mavenLocal()
+//         google()
+//         mavenCentral()
+//     }
+
+    
+//     configurations.all {
+//         resolutionStrategy.force 'org.apache.commons:commons-lang3:3.12.0'
+//     }
+// }

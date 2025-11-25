@@ -2,9 +2,10 @@ import React, { useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Linking } from "react-native";
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import appleAuth from '@invertase/react-native-apple-authentication';
-import { supabase } from "../../supabase"; 
+import { supabase } from "../../supabase";
 import { useAppDispatch } from "../../redux/hooks";
 import { setLoggedIn } from "../../redux/authSlice";
+import { GOOGLE_WEB_CLIENT_ID } from '@env';
 
 
 
@@ -19,32 +20,31 @@ export default function Register({ navigation }: Props) {
     navigation.navigate("RegisterForm");
   }
 
-  
- // ===== Configure Google Signin =====
+
+  // ===== Configure Google Signin =====
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '476306397132-4s0f8ts8mirt6bqdnubmm4flct6hvvqn.apps.googleusercontent.com',
+      webClientId: GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
       scopes: ['email', 'profile'],
-        forceCodeForRefreshToken: true,
-
-
+      forceCodeForRefreshToken: true,
     });
   }, []);
 
   // ===== Google Sign In =====
-const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async () => {
     try {
       await GoogleSignin.hasPlayServices();
-      await GoogleSignin.signOut();       
+      await GoogleSignin.signOut();
       const res = await GoogleSignin.signIn();
 
       if (!res.data?.idToken) throw new Error("No ID token from Google");
 
-      // Supabase sign in with Google ID token
+      // Supabase sign in with Google ID token and access token
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "google",
-        token: res.data?.idToken!,
+        token: res.data.idToken,
+        access_token: res.data.serverAuthCode || res.data.idToken, // Use serverAuthCode if available
       });
 
       if (error) {
@@ -53,19 +53,33 @@ const handleGoogleSignIn = async () => {
         return;
       }
 
-        if (data.session?.user) {
-      dispatch(
-        setLoggedIn({
-          id: data.session.user.id,
-          name: data.session.user.user_metadata?.full_name || "Unknown",
-          email: data.session.user.email || "",
-          photo: data.session.user.user_metadata?.avatar_url || "",
-        })
-      );
-    }
+      if (data.session?.user) {
+        // Fetch profile from database to get custom avatar
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.session.user.id)
+          .single();
+
+        dispatch(
+          setLoggedIn({
+            id: data.session.user.id,
+            name: data.session.user.user_metadata?.full_name || "Unknown",
+            email: data.session.user.email || "",
+            // Prioritize database avatar over Google avatar
+            avatar_url: profileData?.avatar_url || data.session.user.user_metadata?.avatar_url || "",
+            display_name: profileData?.display_name || data.session.user.user_metadata?.full_name,
+            user_metadata: {
+              ...data.session.user.user_metadata,
+              // Override with database avatar if it exists
+              avatar_url: profileData?.avatar_url || data.session.user.user_metadata?.avatar_url
+            }
+          })
+        );
+      }
 
       //Navigate to Home
-       navigation.replace("Root");
+      navigation.replace("Root");
 
       Alert.alert("Success", `Welcome ${data.session?.user?.email}`);
     } catch (error: any) {
@@ -76,42 +90,42 @@ const handleGoogleSignIn = async () => {
 
 
   // ===== Apple Sign In =====
-const handleAppleSignIn = async () => {
-  try {
-    const response = await appleAuth.performRequest({
-      requestedOperation: appleAuth.Operation.LOGIN,
-      requestedScopes: [
-        appleAuth.Scope.EMAIL,
-        appleAuth.Scope.FULL_NAME
-      ],
-    });
+  const handleAppleSignIn = async () => {
+    try {
+      const response = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [
+          appleAuth.Scope.EMAIL,
+          appleAuth.Scope.FULL_NAME
+        ],
+      });
 
-    console.log("Apple Response:", response);
+      console.log("Apple Response:", response);
 
-    const { user, email, fullName, identityToken } = response;
+      const { user, email, fullName, identityToken } = response;
 
-    if (!identityToken) {
-      Alert.alert("Error", "Apple Sign-in failed. Try again.");
-      return;
+      if (!identityToken) {
+        Alert.alert("Error", "Apple Sign-in failed. Try again.");
+        return;
+      }
+
+      // Yahan supabase ka call lagega ↓
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: identityToken,
+      });
+
+      if (error) {
+        Alert.alert("Error", error.message);
+        return;
+      }
+
+      Alert.alert("Success", "Apple Sign-In Successful!");
+    } catch (error) {
+      console.log("Apple Error:", error);
+      Alert.alert("Error", "Apple Sign-in cancelled or failed.");
     }
-
-    // Yahan supabase ka call lagega ↓
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: "apple",
-      token: identityToken,
-    });
-
-    if (error) {
-      Alert.alert("Error", error.message);
-      return;
-    }
-
-    Alert.alert("Success", "Apple Sign-In Successful!");
-  } catch (error) {
-    console.log("Apple Error:", error);
-    Alert.alert("Error", "Apple Sign-in cancelled or failed.");
-  }
-};
+  };
 
   return (
     <ScrollView>
@@ -137,10 +151,10 @@ const handleAppleSignIn = async () => {
           <TouchableOpacity style={styles.emailBtn} onPress={handleRegister}>
             {/* <FontAwesome6 name="envelope" size={22} color="#000" /> */}
             <Image
-          source={require("../../assets/message.png")}
-          style={{ width: 24, height: 24 }}
-          
-        />
+              source={require("../../assets/message.png")}
+              style={{ width: 24, height: 24 }}
+
+            />
             <Text style={styles.emailText}>Sign up with email</Text>
 
           </TouchableOpacity>
@@ -155,22 +169,22 @@ const handleAppleSignIn = async () => {
 
           <TouchableOpacity style={styles.socialBtn} onPress={handleGoogleSignIn}>
             {/* <FontAwesome6 name="google" size={22} color="#4285F4" /> */}
-           <Image
-          source={require("../../assets/google.png")}
-          style={{ width: 24, height: 24 }}
-          
-        />
+            <Image
+              source={require("../../assets/google.png")}
+              style={{ width: 24, height: 24 }}
+
+            />
             <Text style={styles.socialText}>Sign up with Google</Text>
           </TouchableOpacity>
 
           {/*===== Apple Signup ======*/}
           <TouchableOpacity style={styles.socialBtn} onPress={handleAppleSignIn}>
             {/* <FontAwesome6 name="apple" size={22} color="#000" /> */}
-             <Image
-          source={require("../../assets/apple.png")}
-          style={{ width: 24, height: 24 }}
-          
-        />
+            <Image
+              source={require("../../assets/apple.png")}
+              style={{ width: 24, height: 24 }}
+
+            />
             <Text style={styles.socialText}>Sign up with Apple</Text>
           </TouchableOpacity>
 

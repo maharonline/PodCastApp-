@@ -8,22 +8,28 @@ import { DatabaseService, LibraryItem } from "../../services/database";
 
 export default function MyLibrary() {
     const { user } = useAppSelector((state) => state.auth);
-    const [activeTab, setActiveTab] = useState<"queue" | "downloads">("queue");
+    const [activeTab, setActiveTab] = useState<"liked" | "downloads">("liked");
     const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchLibrary = async () => {
-        if (!user?.id) return;
+        if (!user?.id) {
+            setLibraryItems([]);
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
-            // Map 'queue' tab to 'queue' status, 'downloads' tab to 'downloaded' status
-            // Note: You might want to adjust this logic if 'downloads' means something else in your app context
-            const status = activeTab === "queue" ? "queue" : "downloaded";
+            // Map 'liked' tab to 'liked' status, 'downloads' tab to 'downloaded' status
+            const status = activeTab === "liked" ? "liked" : "downloaded";
+            console.log(`MyLibrary: Fetching ${status} items for user:`, user.id);
             const data = await DatabaseService.getLibrary(user.id, status);
+            console.log(`MyLibrary: Got ${data?.length || 0} items for ${status}`);
             setLibraryItems(data || []);
         } catch (error) {
             console.error("Error fetching library:", error);
+            setLibraryItems([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -62,21 +68,21 @@ export default function MyLibrary() {
 
             {/* TABS */}
             <View style={styles.tabs}>
-                <TouchableOpacity onPress={() => setActiveTab("queue")}>
+                <TouchableOpacity onPress={() => setActiveTab("liked")}>
                     <View
                         style={[
                             styles.tabItem,
-                            activeTab === "queue" && styles.activeTab,
+                            activeTab === "liked" && styles.activeTab,
                         ]}
                     >
                         <Text
                             style={
-                                activeTab === "queue"
+                                activeTab === "liked"
                                     ? styles.activeTabText
                                     : styles.inactiveTab
                             }
                         >
-                            Queue
+                            Liked
                         </Text>
                     </View>
                 </TouchableOpacity>
@@ -111,7 +117,11 @@ export default function MyLibrary() {
                     {/* EMPTY STATE */}
                     {libraryItems.length === 0 ? (
                         <View style={{ alignItems: "center", marginTop: 50 }}>
-                            <Text style={{ color: "gray" }}>No episodes in {activeTab}</Text>
+                            <Text style={{ color: "gray", fontSize: 16 }}>
+                                {!user?.id
+                                    ? "Please log in to view your library"
+                                    : `No episodes in ${activeTab}`}
+                            </Text>
                         </View>
                     ) : (
                         /* PODCAST LIST */
@@ -197,13 +207,13 @@ const styles = StyleSheet.create({
     },
 
     activeTabText: {
-        fontSize: 16,
-        fontWeight: "700",
+        fontSize: 13,
+        fontWeight: "600",
         color: "#A637FF",
     },
 
     inactiveTab: {
-        fontSize: 16,
+        fontSize: 13,
         color: "gray",
     },
 

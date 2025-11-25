@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
 import { useAppSelector } from "../../redux/hooks";
 import { XMLParser } from "fast-xml-parser";
+import { DownloadService } from "../../services/DownloadService";
+import { DatabaseService } from "../../services/database";
 
 interface Episode {
   title: string;
@@ -16,7 +18,13 @@ interface Episode {
 }
 
 // Memoized Episode Item Component for better performance
-const EpisodeItem = React.memo(({ item, index, onPlay }: { item: Episode; index: number; onPlay: (index: number) => void }) => (
+const EpisodeItem = React.memo(({ item, index, onPlay, onDownload, downloading }: {
+  item: Episode;
+  index: number;
+  onPlay: (index: number) => void;
+  onDownload: (episode: Episode) => void;
+  downloading: boolean;
+}) => (
   <View style={styles.podcastItem}>
     <Image source={{ uri: item.image }} style={styles.podcastImage} />
 
@@ -34,7 +42,13 @@ const EpisodeItem = React.memo(({ item, index, onPlay }: { item: Episode; index:
         </TouchableOpacity>
 
         <View style={styles.actionIconsRow}>
-          <Feather name="download" size={20} style={styles.actionIcon} />
+          <TouchableOpacity onPress={() => onDownload(item)} disabled={downloading}>
+            <Feather
+              name={downloading ? "loader" : "download"}
+              size={20}
+              style={[styles.actionIcon, downloading && { opacity: 0.5 }]}
+            />
+          </TouchableOpacity>
           <Feather name="share-2" size={20} style={styles.actionIcon} />
           <Feather name="more-vertical" size={20} style={styles.actionIcon} />
         </View>
@@ -49,6 +63,7 @@ export default function Home() {
 
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingEpisodes, setDownloadingEpisodes] = useState<Set<string>>(new Set());
 
   const RSS_URL = "https://podcasts.files.bbci.co.uk/p01plr2p.rss";
 
@@ -119,10 +134,64 @@ export default function Home() {
     navigation.navigate("Player", { episodes, index });
   }, [episodes, navigation]);
 
+  // Handle download
+  const handleDownload = useCallback(async (episode: Episode) => {
+    if (!episode.audioUrl) {
+      Alert.alert("Error", "No audio URL available");
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert("Error", "Please log in to download episodes");
+      return;
+    }
+
+    const episodeId = episode.audioUrl;
+    setDownloadingEpisodes(prev => new Set(prev).add(episodeId));
+
+    try {
+      // Download the file
+      await DownloadService.downloadAudio(
+        episode.audioUrl,
+        episode.title,
+        (progress) => {
+          console.log(`Download progress: ${(progress.progress * 100).toFixed(0)}%`);
+        }
+      );
+
+      // Save to database with 'downloaded' status
+      await DatabaseService.addToLibrary(user.id, {
+        id: episode.audioUrl,
+        title: episode.title,
+        description: episode.description,
+        audioUrl: episode.audioUrl,
+        image: episode.image,
+        pubDate: episode.pubDate,
+      }, 'downloaded');
+
+      Alert.alert("Success", "Episode downloaded successfully!");
+    } catch (error: any) {
+      console.error("Download error:", error);
+      Alert.alert("Download Failed", error.message || "Failed to download episode");
+    } finally {
+      setDownloadingEpisodes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(episodeId);
+        return newSet;
+      });
+    }
+  }, [user]);
+
   // Memoized render function
   const renderEpisode = useCallback(({ item, index }: { item: Episode; index: number }) => (
-    <EpisodeItem item={item} index={index} onPlay={handlePlay} />
-  ), [handlePlay]);
+    <EpisodeItem
+      item={item}
+      index={index}
+      onPlay={handlePlay}
+      onDownload={handleDownload}
+      downloading={downloadingEpisodes.has(item.audioUrl || '')}
+    />
+  ), [handlePlay, handleDownload, downloadingEpisodes]);
 
   // Get item layout for better scrolling performance
   const getItemLayout = useCallback((data: any, index: number) => ({

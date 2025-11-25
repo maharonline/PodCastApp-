@@ -1,4 +1,6 @@
 import { supabase } from "../supabase";
+import RNFS from 'react-native-fs';
+import { Buffer } from 'buffer';
 
 export interface UserProfile {
     id: string;
@@ -75,34 +77,73 @@ export const DatabaseService = {
 
     async uploadAvatar(userId: string, imageUri: string, imageName: string) {
         try {
-            // Convert image to blob
-            const response = await fetch(imageUri);
-            const blob = await response.blob();
+            console.log('DatabaseService.uploadAvatar: Starting upload', { userId, imageUri, imageName });
+
+            // For React Native, we need to read the file properly using RNFS
+            // Remove 'file://' prefix if present
+            let filePath = imageUri;
+            if (filePath.startsWith('file://')) {
+                filePath = filePath.replace('file://', '');
+            }
+
+            console.log('DatabaseService.uploadAvatar: Reading file from:', filePath);
+
+            // Read the file as base64
+            const base64Data = await RNFS.readFile(filePath, 'base64');
+            console.log('DatabaseService.uploadAvatar: File read successfully, base64 length:', base64Data.length);
+
+            // Convert base64 to binary using Buffer (available in React Native via polyfill)
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            console.log('DatabaseService.uploadAvatar: Converted to binary, size:', buffer.length);
 
             // Upload to Supabase Storage
-            const filePath = `avatars/${userId}/${imageName}`;
+            const storagePath = `${userId}/${imageName}`;
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, blob, {
+                .upload(storagePath, buffer, {
                     cacheControl: '3600',
-                    upsert: true
+                    upsert: true,
+                    contentType: 'image/jpeg'
                 });
 
-            if (uploadError) throw uploadError;
+            console.log('DatabaseService.uploadAvatar: Upload response:', { uploadData, uploadError, storagePath });
+
+            if (uploadError) {
+                console.error('DatabaseService.uploadAvatar: Upload error:', uploadError);
+                throw uploadError;
+            }
 
             // Get public URL
             const { data: urlData } = supabase.storage
                 .from('avatars')
-                .getPublicUrl(filePath);
+                .getPublicUrl(storagePath);
 
             const avatarUrl = urlData.publicUrl;
+            console.log('DatabaseService.uploadAvatar: Public URL:', avatarUrl);
+
+            // Verify the file exists by attempting to download it
+            try {
+                const { data: downloaded, error: downloadError } = await supabase.storage
+                    .from('avatars')
+                    .download(storagePath);
+
+                if (downloadError) {
+                    console.warn('DatabaseService.uploadAvatar: Verification download failed', downloadError);
+                } else {
+                    console.log('DatabaseService.uploadAvatar: Verification successful, file size:', downloaded?.size || '(unknown)');
+                }
+            } catch (verErr) {
+                console.warn('DatabaseService.uploadAvatar: Verification threw error', verErr);
+            }
 
             // Update profile with new avatar URL
             await this.updateUserProfile(userId, { avatar_url: avatarUrl } as any);
+            console.log('DatabaseService.uploadAvatar: Profile updated with new avatar URL');
 
             return avatarUrl;
         } catch (error) {
-            console.error("Error uploading avatar:", error);
+            console.error("DatabaseService.uploadAvatar: Error:", error);
             throw error;
         }
     },
@@ -126,22 +167,30 @@ export const DatabaseService = {
 
     // --- Library ---
     async addToLibrary(userId: string, episode: any, status: 'queue' | 'liked' | 'history' | 'downloaded') {
-        // 0. Ensure user profile exists
-        await this.ensureUserProfile(userId);
+        try {
+            // 0. Ensure user profile exists (non-blocking)
+            this.ensureUserProfile(userId).catch(err =>
+                console.warn('Error ensuring user profile:', err)
+            );
 
-        // 1. Ensure episode exists in episodes table
-        await this.upsertEpisode(episode);
+            // 1. Ensure episode exists in episodes table
+            await this.upsertEpisode(episode);
 
-        // 2. Add to user_library
-        const { error } = await supabase
-            .from('user_library')
-            .upsert({
-                user_id: userId,
-                episode_id: episode.audioUrl || episode.id,
-                status: status,
-            }, { onConflict: 'user_id, episode_id, status' });
+            // 2. Add to user_library
+            const { error } = await supabase
+                .from('user_library')
+                .upsert({
+                    user_id: userId,
+                    episode_id: episode.audioUrl || episode.id,
+                    status: status,
+                }, { onConflict: 'user_id, episode_id, status' });
 
-        if (error) throw error;
+            if (error) {
+                console.error('Error adding to library:', error);
+            }
+        } catch (err) {
+            console.error('Unexpected error in addToLibrary:', err);
+        }
     },
 
     async removeFromLibrary(userId: string, episodeId: string, status: 'queue' | 'liked' | 'history' | 'downloaded') {
@@ -159,20 +208,28 @@ export const DatabaseService = {
         console.log(`Database: getLibrary-${status} starting...`);
         const start = Date.now();
 
-        const { data, error } = await supabase
-            .from('user_library')
-            .select(`
-                *,
-                episode:episodes(*)
-            `)
-            .eq('user_id', userId)
-            .eq('status', status)
-            .order('created_at', { ascending: false });
+        try {
+            const { data, error } = await supabase
+                .from('user_library')
+                .select(`
+                    *,
+                    episode:episodes(*)
+                `)
+                .eq('user_id', userId)
+                .eq('status', status)
+                .order('created_at', { ascending: false });
 
-        console.log(`Database: getLibrary-${status} took ${Date.now() - start}ms. Rows: ${data?.length}`);
+            if (error) {
+                console.error(`Database: getLibrary-${status} error:`, error);
+                return [];
+            }
 
-        if (error) throw error;
-        return data as LibraryItem[];
+            console.log(`Database: getLibrary-${status} took ${Date.now() - start}ms. Rows: ${data?.length}`);
+            return data as LibraryItem[];
+        } catch (err) {
+            console.error(`Database: getLibrary-${status} exception:`, err);
+            return [];
+        }
     },
 
     async getLibraryStats(userId: string) {

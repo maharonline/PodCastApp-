@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, TextInput, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TextInput, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import { useFocusEffect } from "@react-navigation/native";
@@ -23,6 +23,7 @@ export default function EditProfile({ navigation }: Props) {
     const [stats, setStats] = useState({ likedCount: 0, followingCount: 0 });
     const [recentlyPlayed, setRecentlyPlayed] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const fetchProfileData = async () => {
         console.log("Profile: fetchProfileData called. User ID:", user?.id);
@@ -34,22 +35,14 @@ export default function EditProfile({ navigation }: Props) {
         }
 
         try {
-            setLoading(true);
+            if (!refreshing) setLoading(true);
             console.log("Profile: Starting database fetches...");
 
-            // Create a timeout promise
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Request timed out")), 10000)
-            );
-
-            // Fetch Stats and History in parallel with timeout
-            const [statsData, historyData] = await Promise.race([
-                Promise.all([
-                    DatabaseService.getLibraryStats(user.id),
-                    DatabaseService.getLibrary(user.id, 'history')
-                ]),
-                timeout
-            ]) as [any, any];
+            // Fetch Stats and History in parallel (no timeout - let it take as long as needed)
+            const [statsData, historyData] = await Promise.all([
+                DatabaseService.getLibraryStats(user?.id),
+                DatabaseService.getLibrary(user?.id, 'history')
+            ]);
 
             console.log("Profile: Database fetches complete.", {
                 stats: statsData,
@@ -60,12 +53,21 @@ export default function EditProfile({ navigation }: Props) {
             setRecentlyPlayed(historyData || []);
         } catch (error: any) {
             console.error("Profile: Error fetching profile data:", error);
-            Alert.alert("Error", "Failed to load profile data: " + error.message);
+            console.error("Profile: Error message:", error?.message);
+            console.error("Profile: Error code:", error?.code);
+            console.error("Profile: Error details:", JSON.stringify(error));
+            Alert.alert("Error", "Failed to load profile data. Pull down to refresh.");
         } finally {
             console.log("Profile: Setting loading to false");
             setLoading(false);
+            setRefreshing(false);
         }
     };
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchProfileData();
+    }, [user?.id]);
 
     useFocusEffect(
         useCallback(() => {
@@ -75,6 +77,8 @@ export default function EditProfile({ navigation }: Props) {
 
     // Get avatar URL from either direct property or user_metadata (for Google OAuth)
     const avatarUrl = user?.avatar_url || user?.user_metadata?.avatar_url;
+    console.log("Avatar URL:", avatarUrl);
+
     const displayName = user?.display_name || user?.user_metadata?.display_name || user?.name || user?.email;
 
     // Handle Image Selection
@@ -102,13 +106,22 @@ export default function EditProfile({ navigation }: Props) {
 
                     // Upload to Supabase
                     if (!user?.id) throw new Error("User ID not found");
+                    console.log('Starting avatar upload for user:', user.id);
                     const newAvatarUrl = await DatabaseService.uploadAvatar(user.id, asset.uri, fileName);
+                    console.log('Avatar uploaded successfully. New URL:', newAvatarUrl);
 
-                    // Update Redux
-                    dispatch(setLoggedIn({
+                    // Update Redux - ensure both avatar_url and user_metadata.avatar_url are updated
+                    const updatedUser = {
                         ...user,
-                        avatar_url: newAvatarUrl
-                    }));
+                        avatar_url: newAvatarUrl,
+                        user_metadata: {
+                            ...user.user_metadata,
+                            avatar_url: newAvatarUrl
+                        }
+                    };
+
+                    console.log('Updating Redux with new avatar URL');
+                    dispatch(setLoggedIn(updatedUser));
 
                     Alert.alert('Success', 'Profile picture updated!');
                 } catch (error: any) {
@@ -140,6 +153,7 @@ export default function EditProfile({ navigation }: Props) {
             // Update profile in Supabase
             const updatedProfile = await DatabaseService.updateUserProfile(user.id, {
                 display_name: username,
+                email: user.email,
             } as any);
 
             console.log("Profile updated in Supabase:", updatedProfile);
@@ -162,6 +176,9 @@ export default function EditProfile({ navigation }: Props) {
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#A637FF" />
+                }
             >
                 {/*======== HEADER ===========*/}
                 <View style={styles.header}>

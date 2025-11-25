@@ -64,89 +64,117 @@ import { setLoggedIn, setLoggedOut } from "./src/redux/authSlice";
 
 export default function App() {
   useEffect(() => {
-    const session = supabase.auth.getSession().then(async (res) => {
-      const user = res.data.session?.user;
-      console.log("App.tsx: Initial Session Check - User:", user?.id);
-
-      if (user) {
-        // Fetch profile data from profiles table
-        try {
-          console.log("App.tsx: Fetching profile for user:", user.id);
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-          if (error) {
-            console.warn("App.tsx: Profile fetch error (expected for new users):", error.message);
-          } else {
-            console.log("App.tsx: Profile found:", profileData);
-          }
-
-          store.dispatch(setLoggedIn({
-            id: user.id,
-            email: user.email,
-            display_name: profileData?.display_name || user.user_metadata?.display_name || user.user_metadata?.name,
-            avatar_url: profileData?.avatar_url || user.user_metadata?.avatar_url,
-            ...user.user_metadata
-          }));
-        } catch (error) {
-          console.error("App.tsx: Unexpected error fetching profile:", error);
-          // Fallback to user metadata if profile fetch fails
-          store.dispatch(setLoggedIn({
-            id: user.id,
-            email: user.email,
-            ...user.user_metadata
-          }));
+    // Non-blocking auth initialization
+    const initAuth = async () => {
+      try {
+        // 1. Get session immediately and dispatch to unblock UI
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error("App.tsx: Session error:", sessionError);
+          store.dispatch(setLoggedOut());
+          return;
         }
-      } else {
-        console.log("App.tsx: No initial user, dispatching setLoggedOut");
+
+        const user = sessionData.session?.user;
+        if (user) {
+          // Dispatch immediately - don't wait for profile fetch
+          store.dispatch(setLoggedIn({
+            id: user.id,
+            email: user.email,
+            display_name: user.user_metadata?.display_name || user.user_metadata?.name,
+            avatar_url: user.user_metadata?.avatar_url,
+            ...user.user_metadata
+          }));
+
+          // Fetch profile in background (fire and forget)
+          (async () => {
+            try {
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+              if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+                console.warn("App.tsx: Profile error:", error.message);
+              } else if (profileData) {
+                console.log("App.tsx: Profile found, updating");
+                store.dispatch(setLoggedIn({
+                  id: user.id,
+                  email: user.email,
+                  display_name: profileData.display_name,
+                  avatar_url: profileData.avatar_url,
+                  user_metadata: {
+                    ...user.user_metadata,
+                    // Override user_metadata avatar with database avatar if it exists
+                    avatar_url: profileData.avatar_url || user.user_metadata?.avatar_url
+                  }
+                }));
+              }
+            } catch (e) {
+              console.error("App.tsx: Background profile fetch error:", e);
+            }
+          })();
+        } else {
+          console.log("App.tsx: No user in session");
+          store.dispatch(setLoggedOut());
+        }
+      } catch (err) {
+        console.error("App.tsx: Init error:", err);
         store.dispatch(setLoggedOut());
       }
-    });
+    };
 
-    // onAuthStateChange listener
+    initAuth();
+
+    // Auth state change listener
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("App.tsx: Auth State Change Event:", event);
 
       if (session?.user) {
         console.log("App.tsx: Auth Change - User:", session.user.id);
 
-        // 1. Dispatch IMMEDIATE login with basic data to unblock navigation
+        // Dispatch immediately to unblock
         store.dispatch(setLoggedIn({
           id: session.user.id,
           email: session.user.email,
+          display_name: session.user.user_metadata?.display_name || session.user.user_metadata?.name,
+          avatar_url: session.user.user_metadata?.avatar_url,
           ...session.user.user_metadata
         }));
 
-        // 2. Fetch profile data in background
-        try {
-          console.log("App.tsx: Fetching profile in background...");
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+        // Fetch profile in background (fire and forget)
+        (async () => {
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-          if (error) {
-            console.warn("App.tsx: Profile fetch error:", error.message);
-          } else if (profileData) {
-            console.log("App.tsx: Profile found, updating state");
-            // Update state with profile data
-            store.dispatch(setLoggedIn({
-              id: session.user.id,
-              email: session.user.email,
-              display_name: profileData.display_name || session.user.user_metadata?.display_name,
-              avatar_url: profileData.avatar_url || session.user.user_metadata?.avatar_url,
-              ...session.user.user_metadata
-            }));
+            if (error && error.code !== 'PGRST116') {
+              console.warn("App.tsx: Profile fetch error:", error.message);
+            } else if (profileData) {
+              console.log("App.tsx: Profile updated");
+              store.dispatch(setLoggedIn({
+                id: session.user.id,
+                email: session.user.email,
+                display_name: profileData.display_name || session.user.user_metadata?.display_name,
+                // Prioritize database avatar, only use OAuth avatar if database avatar is empty
+                avatar_url: profileData.avatar_url || session.user.user_metadata?.avatar_url,
+                user_metadata: {
+                  ...session.user.user_metadata,
+                  // Override user_metadata avatar with database avatar if it exists
+                  avatar_url: profileData.avatar_url || session.user.user_metadata?.avatar_url
+                }
+              }));
+            }
+          } catch (error) {
+            console.error("App.tsx: Background profile fetch failed:", error);
           }
-        } catch (error) {
-          console.error("App.tsx: Background profile fetch failed:", error);
-        }
+        })();
       } else {
-        console.log("App.tsx: Auth Change - No user, logging out");
+        console.log("App.tsx: Auth Change - No user");
         store.dispatch(setLoggedOut());
       }
     });
