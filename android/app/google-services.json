@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "97480145415",
+    "project_id": "android-c4cca",
+    "storage_bucket": "android-c4cca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:97480145415:android:85eb3068cad9f2028848a2",
+        "android_client_info": {
+          "package_name": "com.example.loginpage"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhJ7jMRulugwEVtcFqBiatSMyh-8Pzgwo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:97480145415:android:3193862ac1e2f1258848a2",
+        "android_client_info": {
+          "package_name": "com.ha698174.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhJ7jMRulugwEVtcFqBiatSMyh-8Pzgwo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:97480145415:android:239cb5cfb8dadb2e8848a2",
+        "android_client_info": {
+          "package_name": "com.podapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhJ7jMRulugwEVtcFqBiatSMyh-8Pzgwo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

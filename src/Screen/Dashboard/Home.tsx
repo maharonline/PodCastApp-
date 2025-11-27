@@ -2,13 +2,13 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { Circle, Svg } from "react-native-svg";
-import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
 import { useAppSelector } from "../../redux/hooks";
-import { XMLParser } from "fast-xml-parser";
 import { DownloadService } from "../../services/DownloadService";
 import { DatabaseService } from "../../services/database";
+import { SUPABASE_ANON_KEY } from "@env";
+// import { EpisodeItem } from "../../components/episodes";
 
 interface Episode {
   title: string;
@@ -97,6 +97,7 @@ const EpisodeItem = React.memo(({ item, index, onPlay, onDownload, downloading, 
 export default function Home() {
 
   const { user } = useAppSelector((state: any) => state.auth);
+  const { unreadCount } = useAppSelector((state: any) => state.notifications);
 
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +105,8 @@ export default function Home() {
   const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
   const [downloadedEpisodes, setDownloadedEpisodes] = useState<Set<string>>(new Set());
 
-  const RSS_URL = "https://podcasts.files.bbci.co.uk/p01plr2p.rss";
+
+  const SUPABASE_RSS_URL = "https://bfchuybsseczmjmmosda.supabase.co/functions/v1/rss";
 
   const navigation = useNavigation<any>();
 
@@ -124,61 +126,30 @@ export default function Home() {
     }
   };
 
+
   const fetchEpisodes = async () => {
     try {
-      const response = await fetch(RSS_URL);
-      const xmlText = await response.text();
-
-      const parser = new XMLParser({
-        ignoreAttributes: false,
-        attributeNamePrefix: "",
+      const response = await fetch(SUPABASE_RSS_URL, {
+        method: 'POST',  // ya GET bhi ho sakta hai
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, // ← yahan token
+          'Content-Type': 'application/json'
+        }
       });
 
-      const json = parser.parse(xmlText);
-      const channel = json?.rss?.channel;
+      const json = await response.json();
+      console.log("RSS JSON:", json);
 
-      if (!channel) {
-        console.log("RSS PARSE FAILED: no channel");
-        setEpisodes([]);
-        setLoading(false);
-        return;
-      }
-
-      // MAIN IMAGE SAFE
-      const mainImage =
-        channel["itunes:image"]?.href ||
-        channel?.image?.url ||
-        "https://via.placeholder.com/400";
-
-      // Normalize items to an array and guard against missing/invalid values
-      const rawItems = channel.item;
-      const itemsArray = rawItems
-        ? Array.isArray(rawItems)
-          ? rawItems
-          : [rawItems]
-        : [];
-
-      // 💠 SAFE FORMAT (NO ERRORS)
-      const formatted: Episode[] = itemsArray
-        .filter((item) => !!(item && (item.enclosure?.url || item["enclosure"]?.url)))
-        .map((item) => ({
-          title: item?.title || "No Title",
-          description: item?.description || "",
-          pubDate: item?.pubDate || "",
-          audioUrl: (item?.enclosure?.url || item?.["enclosure"]?.url) || null,
-          image: mainImage,
-        }));
-
-      console.log("FORMATTED:", formatted.length, "episodes parsed");
-
+      const formatted: Episode[] = json.episodes || [];
       setEpisodes(formatted);
       setLoading(false);
-
     } catch (err) {
       console.log("RSS ERROR:", err);
+      setEpisodes([]);
       setLoading(false);
     }
   };
+
 
   // Memoized callback for playing episodes - MUST be before any conditional returns
   const handlePlay = useCallback((index: number) => {
@@ -310,8 +281,18 @@ export default function Home() {
               <Text style={styles.headerSubtitle}>Find your favorite podcast</Text>
             </View>
 
-            <TouchableOpacity style={styles.notificationBtn}>
+            <TouchableOpacity
+              style={styles.notificationBtn}
+              onPress={() => navigation.navigate("Notifications")}
+            >
               <Ionicons name="notifications-outline" size={22} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -435,5 +416,24 @@ const styles = StyleSheet.create({
   },
   downloadedContainer: {
     marginLeft: 15,
+  },
+  badge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
 });

@@ -4,9 +4,21 @@ import { store } from "./src/redux/store";
 import AppNavigator from "./src/Appnavigation/Appnavigator";
 import { supabase } from "./src/supabase";
 import { setLoggedIn, setLoggedOut } from "./src/redux/authSlice";
+import NotificationService from "./src/services/NotificationService";
+import { NotificationDatabaseService } from "./src/services/NotificationDatabaseService";
+import { loadNotifications } from "./src/redux/notificationSlice";
 
 export default function App() {
   useEffect(() => {
+    // Initialize Notifications
+    try {
+      console.log("App.tsx: Starting NotificationService.initialize()");
+      NotificationService.initialize();
+      console.log("App.tsx: Finished NotificationService.initialize()");
+    } catch (error) {
+      console.error("App.tsx: Notification initialization failed:", error);
+    }
+
     // Non-blocking auth initialization
     const initAuth = async () => {
       try {
@@ -54,6 +66,13 @@ export default function App() {
                   }
                 }));
               }
+
+              // Load notifications from Supabase
+              const notifications = await NotificationDatabaseService.loadNotifications(user.id);
+              store.dispatch(loadNotifications(notifications));
+
+              // Auto-cleanup old notifications (7+ days)
+              await NotificationDatabaseService.clearOldNotifications(user.id);
             } catch (e) {
               console.error("App.tsx: Background profile fetch error:", e);
             }
@@ -112,6 +131,13 @@ export default function App() {
                 }
               }));
             }
+
+            // Load notifications from Supabase
+            const notifications = await NotificationDatabaseService.loadNotifications(session.user.id);
+            store.dispatch(loadNotifications(notifications));
+
+            // Auto-cleanup old notifications (7+ days)
+            await NotificationDatabaseService.clearOldNotifications(session.user.id);
           } catch (error) {
             console.error("App.tsx: Background profile fetch failed:", error);
           }

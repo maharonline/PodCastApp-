@@ -109,8 +109,10 @@ android {
 }
 
 dependencies {
-    // The version of react-native is set by the React Native Gradle Plugin
+    implementation 'com.onesignal:OneSignal:[5.1.0, 5.1.99]'
     implementation("com.facebook.react:react-android")
+    implementation platform('com.google.firebase:firebase-bom:34.6.0')
+    implementation 'com.google.firebase:firebase-analytics'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
@@ -118,3 +120,6 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Apply Google Services plugin (must be at the bottom)
+apply plugin: 'com.google.gms.google-services'

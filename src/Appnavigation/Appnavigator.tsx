@@ -1,8 +1,10 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+
+export const navigationRef = createNavigationContainerRef<any>();
 
 // Redux
 import { useAppSelector } from "../redux/hooks";
@@ -20,6 +22,7 @@ import AllEpisodes from "../Screen/Dashboard/AllEpisodes";
 import Search from "../Screen/Dashboard/Search";
 import MyLibrary from "../Screen/Dashboard/MyLibrary";
 import Profile from "../Screen/Dashboard/Profile";
+import NotificationsScreen from "../Screen/Dashboard/NotificationsScreen";
 
 // ----- Types -----
 type TabParamList = {
@@ -33,6 +36,7 @@ type MainStackParamList = {
   Tabs: undefined;
   Player: undefined;
   AllEpisodes: undefined;
+  Notifications: undefined;
 };
 
 type StackParamList = {
@@ -73,6 +77,7 @@ const MainStackNavigator: React.FC = () => (
     <MainStack.Screen name="Tabs" component={MyTabs} />
     <MainStack.Screen name="Player" component={PlayerScreen} />
     <MainStack.Screen name="AllEpisodes" component={AllEpisodes} />
+    <MainStack.Screen name="Notifications" component={NotificationsScreen} />
   </MainStack.Navigator>
 );
 
@@ -80,7 +85,7 @@ export default function AppNavigator() {
   const { isAuthenticated } = useAppSelector((state: RootState) => state.auth);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           // Authenticated users see Main Stack (Tabs + Player + AllEpisodes)

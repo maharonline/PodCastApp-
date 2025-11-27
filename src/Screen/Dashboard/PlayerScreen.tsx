@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native";
+import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -17,11 +17,13 @@ interface Props {
 export default function PlayerScreen({ navigation, route }: Props) {
   const { user } = useAppSelector((state) => state.auth);
   const params = route?.params || {};
-  const episodes: any[] = params.episodes || [];
+  // Handle both single episode (from notification) and array of episodes (from list)
+  const episodes: any[] = params.episodes || (params.episode ? [params.episode] : []);
   const startIndex: number = typeof params.index === 'number' ? params.index : 0;
 
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true); // Start with buffering true as we load
   const [isLiked, setIsLiked] = useState(false);
 
   // Use TrackPlayer's built-in progress hook
@@ -33,6 +35,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
       const state = event.state;
       console.log('📻 Playback state changed:', state);
       setIsPlaying(state === State.Playing);
+      setIsBuffering(state === State.Buffering);
     }
   });
 
@@ -104,23 +107,31 @@ export default function PlayerScreen({ navigation, route }: Props) {
         // Always reset and add new tracks
         await TP.reset();
 
+        // Fetch all downloaded episodes once to avoid N+1 network requests
+        let downloadedMap = new Map<string, string>();
+        if (user?.id) {
+          try {
+            const allDownloads = await DownloadService.getDownloadedEpisodes(user.id);
+            allDownloads.forEach(d => {
+              if (d.episode_id && d.local_path) {
+                downloadedMap.set(d.episode_id, d.local_path);
+              }
+            });
+          } catch (e) {
+            console.warn('Error fetching downloaded episodes:', e);
+          }
+        }
+
         // Check for downloaded episodes and use local files when available
-        const tracks = await Promise.all(episodes.map(async (ep, i) => {
+        const tracks = episodes.map((ep, i) => {
           let audioSource = ep.audioUrl; // Default to streaming URL
 
-          // Check if episode is downloaded
-          if (user?.id) {
-            const safeEpisodeId = ep.audioUrl?.split('/').pop()?.split('?')[0];
-            if (safeEpisodeId) {
-              try {
-                const downloaded = await DownloadService.getDownloadedEpisode(user.id, safeEpisodeId);
-                if (downloaded?.local_path) {
-                  audioSource = downloaded.local_path; // Use local file
-                  console.log('🎵 Using offline file for:', ep.title);
-                }
-              } catch (e) {
-                console.warn('Error checking download status:', e);
-              }
+          // Check if episode is downloaded using the pre-fetched map
+          if (user?.id && ep.audioUrl) {
+            const safeEpisodeId = ep.audioUrl.split('/').pop()?.split('?')[0];
+            if (safeEpisodeId && downloadedMap.has(safeEpisodeId)) {
+              audioSource = downloadedMap.get(safeEpisodeId);
+              console.log('🎵 Using offline file for:', ep.title);
             }
           }
 
@@ -131,7 +142,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
             artist: ep.pubDate || 'Unknown',
             artwork: ep.image,
           };
-        }));
+        });
 
         if (tracks.length === 0) return;
 
@@ -142,7 +153,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
         } else {
           setCurrentIndex(startIndex);
         }
-        
+
         // Start playback
         console.log('🎵 Starting playback...');
         if (TP.play) {
@@ -181,12 +192,12 @@ export default function PlayerScreen({ navigation, route }: Props) {
         if (TP.reset) TP.reset().catch(() => { });
       } catch (e) { }
     };
-  }, [episodes, startIndex]);
+  }, []);
 
   const togglePlay = async () => {
     try {
       console.log('🎮 Toggle play - current state:', isPlaying);
-      
+
       if (isPlaying) {
         console.log('⏸️ Pausing...');
         await TrackPlayer.pause();
@@ -334,8 +345,12 @@ export default function PlayerScreen({ navigation, route }: Props) {
             <MaterialIcons name="replay-10" size={20} color="#000" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={32} color="#A637FF" />
+          <TouchableOpacity style={styles.playBtn} onPress={togglePlay} disabled={isBuffering}>
+            {isBuffering ? (
+              <ActivityIndicator size="large" color="#A637FF" />
+            ) : (
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={32} color="#A637FF" />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.smallBtn} onPress={seekForward10}>
