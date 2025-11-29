@@ -8,6 +8,8 @@ import { useAppSelector } from "../../redux/hooks";
 import { XMLParser } from "fast-xml-parser";
 import { DownloadService } from "../../services/DownloadService";
 import { DatabaseService } from "../../services/database";
+import { SUPABASE_ANON_KEY } from "@env";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface Episode {
   title: string;
@@ -105,7 +107,7 @@ export default function Search() {
   const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
   const [downloadedEpisodes, setDownloadedEpisodes] = useState<Set<string>>(new Set());
 
-  const RSS_URL = "https://podcasts.files.bbci.co.uk/p01plr2p.rss";
+  const SUPABASE_RSS_URL = "https://bfchuybsseczmjmmosda.supabase.co/functions/v1/rss"
 
   useEffect(() => {
     fetchEpisodes();
@@ -136,58 +138,25 @@ export default function Search() {
   };
 
   const fetchEpisodes = async () => {
-    try {
-      const response = await fetch(RSS_URL);
-      const xmlText = await response.text();
 
-      const parser = new XMLParser({
-        ignoreAttributes: false,
-        attributeNamePrefix: "",
+    try {
+      const response = await fetch(SUPABASE_RSS_URL, {
+        method: 'POST',  // ya GET bhi ho sakta hai
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, // ← yahan token
+          'Content-Type': 'application/json'
+        }
       });
 
-      const json = parser.parse(xmlText);
-      const channel = json?.rss?.channel;
+      const json = await response.json();
+      console.log("RSS JSON:", json);
 
-      if (!channel) {
-        console.log("RSS PARSE FAILED: no channel");
-        setEpisodes([]);
-        setLoading(false);
-        return;
-      }
-
-      // MAIN IMAGE SAFE
-      const mainImage =
-        channel["itunes:image"]?.href ||
-        channel?.image?.url ||
-        "https://via.placeholder.com/400";
-
-      // Normalize items to an array and guard against missing/invalid values
-      const rawItems = channel.item;
-      const itemsArray = rawItems
-        ? Array.isArray(rawItems)
-          ? rawItems
-          : [rawItems]
-        : [];
-
-      // 💠 SAFE FORMAT (NO ERRORS)
-      const formatted: Episode[] = itemsArray
-        .filter((item) => !!(item && (item.enclosure?.url || item["enclosure"]?.url)))
-        .map((item) => ({
-          title: item?.title || "No Title",
-          description: item?.description || "",
-          pubDate: item?.pubDate || "",
-          audioUrl: (item?.enclosure?.url || item?.["enclosure"]?.url) || null,
-          image: mainImage,
-        }));
-
-      console.log("FORMATTED:", formatted.length, "episodes parsed");
-
+      const formatted: Episode[] = json.episodes || [];
       setEpisodes(formatted);
-      setFilteredEpisodes(formatted);
       setLoading(false);
-
     } catch (err) {
       console.log("RSS ERROR:", err);
+      setEpisodes([]);
       setLoading(false);
     }
   };
@@ -297,50 +266,52 @@ export default function Search() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Search Bar */}
-      <View style={styles.inputBox}>
-        <Ionicons name="search" size={20} style={{ marginRight: 10 }} />
-        <TextInput
-          style={styles.input}
-          placeholder="Search by episode name..."
-          placeholderTextColor="#1F1F1F"
-          keyboardType="web-search"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+      <View style={styles.container}>
+        {/* Search Bar */}
+        <View style={styles.inputBox}>
+          <Ionicons name="search" size={20} style={{ marginRight: 10 }} />
+          <TextInput
+            style={styles.input}
+            placeholder="Search by episode name..."
+            placeholderTextColor="#1F1F1F"
+            keyboardType="web-search"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Results Count */}
+        {searchQuery.trim() !== "" && (
+          <Text style={styles.resultsText}>
+            {filteredEpisodes.length} result{filteredEpisodes.length !== 1 ? 's' : ''} found
+          </Text>
+        )}
+
+        {/* Episode List */}
+        <FlatList
+          data={filteredEpisodes}
+          keyExtractor={(item, idx) => item.audioUrl || String(idx)}
+          renderItem={renderEpisode}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No episodes found</Text>
+              <Text style={styles.emptySubtext}>Try a different search term</Text>
+            </View>
+          )}
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
-            <Ionicons name="close-circle" size={20} color="#999" />
-          </TouchableOpacity>
-        )}
       </View>
-
-      {/* Results Count */}
-      {searchQuery.trim() !== "" && (
-        <Text style={styles.resultsText}>
-          {filteredEpisodes.length} result{filteredEpisodes.length !== 1 ? 's' : ''} found
-        </Text>
-      )}
-
-      {/* Episode List */}
-      <FlatList
-        data={filteredEpisodes}
-        keyExtractor={(item, idx) => item.audioUrl || String(idx)}
-        renderItem={renderEpisode}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No episodes found</Text>
-            <Text style={styles.emptySubtext}>Try a different search term</Text>
-          </View>
-        )}
-      />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -356,7 +327,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,
-    marginTop: 40,
+    marginTop: 10,
   },
   input: { flex: 1, fontSize: 15, color: "#1F1F1F" },
 

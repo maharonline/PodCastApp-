@@ -47,7 +47,8 @@ export default function PlayerScreen({ navigation, route }: Props) {
       if (!user?.id || !current) return;
       try {
         const library = await DatabaseService.getLibrary(user.id, 'liked');
-        const isFound = library?.some((item: any) => item.episode_id === (current.audioUrl || current.id));
+        const safeId = DatabaseService.getEpisodeIdFromUrl(current.audioUrl || current.id);
+        const isFound = library?.some((item: any) => item.episode_id === safeId);
         setIsLiked(!!isFound);
       } catch (e) { console.log('Error checking like status', e); }
     };
@@ -59,7 +60,8 @@ export default function PlayerScreen({ navigation, route }: Props) {
     const saveToHistory = async () => {
       if (!user?.id || !current) return;
       try {
-        await DatabaseService.addToLibrary(user.id, current, 'history');
+        const safeId = DatabaseService.getEpisodeIdFromUrl(current.audioUrl || current.id);
+        await DatabaseService.addToLibrary(user.id, { ...current, id: safeId }, 'history');
       } catch (e) { console.log('Error saving history', e); }
     };
 
@@ -74,11 +76,12 @@ export default function PlayerScreen({ navigation, route }: Props) {
       return;
     }
     try {
+      const safeId = DatabaseService.getEpisodeIdFromUrl(current.audioUrl || current.id);
       if (isLiked) {
-        await DatabaseService.removeFromLibrary(user.id, current.audioUrl || current.id, 'liked');
+        await DatabaseService.removeFromLibrary(user.id, safeId, 'liked');
         setIsLiked(false);
       } else {
-        await DatabaseService.addToLibrary(user.id, current, 'liked');
+        await DatabaseService.addToLibrary(user.id, { ...current, id: safeId }, 'liked');
         setIsLiked(true);
       }
     } catch (e) {

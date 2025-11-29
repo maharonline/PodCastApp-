@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, TextInput, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, TextInput, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Modal } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import { useFocusEffect } from "@react-navigation/native";
@@ -10,6 +10,10 @@ import { supabase } from "../../supabase";
 import { setLoggedOut, setLoggedIn } from "../../redux/authSlice";
 import { store } from "../../redux/store";
 import { DatabaseService, LibraryItem } from "../../services/database";
+import { DownloadService } from "../../services/DownloadService";
+import PodcastCard from "../../components/PodCastCard";
+import { SafeAreaView } from "react-native-safe-area-context";
+import StripeBackground from "../../components/StripeLine";
 
 interface Props {
     navigation: any;
@@ -24,6 +28,10 @@ export default function EditProfile({ navigation }: Props) {
     const [recentlyPlayed, setRecentlyPlayed] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [downloadedEpisodes, setDownloadedEpisodes] = useState<Set<string>>(new Set());
+    const [downloadingEpisodes, setDownloadingEpisodes] = useState<Set<string>>(new Set());
+    const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
 
     const fetchProfileData = async () => {
         console.log("Profile: fetchProfileData called. User ID:", user?.id);
@@ -38,19 +46,38 @@ export default function EditProfile({ navigation }: Props) {
             if (!refreshing) setLoading(true);
             console.log("Profile: Starting database fetches...");
 
-            // Fetch Stats and History in parallel (no timeout - let it take as long as needed)
-            const [statsData, historyData] = await Promise.all([
+            // Fetch Stats, History, and Downloaded Episodes in parallel
+            const [statsData, historyData, downloadedData] = await Promise.all([
                 DatabaseService.getLibraryStats(user?.id),
-                DatabaseService.getLibrary(user?.id, 'history')
+                DatabaseService.getLibrary(user?.id, 'history'),
+                DownloadService.getDownloadedEpisodes(user?.id)
             ]);
 
             console.log("Profile: Database fetches complete.", {
                 stats: statsData,
-                historyCount: historyData?.length
+                historyCount: historyData?.length,
+                downloadedCount: downloadedData?.length
             });
 
             setStats(statsData);
-            setRecentlyPlayed(historyData || []);
+
+            // Remove duplicates - keep only the most recent occurrence of each episode
+            const uniqueHistory: LibraryItem[] = [];
+            const seenEpisodeIds = new Set<string>();
+
+            for (const item of (historyData || [])) {
+                if (!seenEpisodeIds.has(item.episode.id)) {
+                    seenEpisodeIds.add(item.episode.id);
+                    uniqueHistory.push(item);
+                }
+            }
+
+            // Limit to last 5 unique episodes
+            setRecentlyPlayed(uniqueHistory.slice(0, 5));
+
+            // Set downloaded episodes
+            const downloadedIds = new Set(downloadedData.map((d: any) => d.episode_id));
+            setDownloadedEpisodes(downloadedIds);
         } catch (error: any) {
             console.error("Profile: Error fetching profile data:", error);
             console.error("Profile: Error message:", error?.message);
@@ -169,180 +196,270 @@ export default function EditProfile({ navigation }: Props) {
         }
     };
 
-    return (
-        <View style={styles.container}>
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#A637FF" />
+    const handleDownload = async (item: LibraryItem) => {
+        const audioUrl = item.episode?.audio_url;
+        if (!audioUrl) {
+            Alert.alert("Error", "No audio URL available");
+            return;
+        }
+
+        if (!user?.id) {
+            Alert.alert("Error", "Please log in to download episodes");
+            return;
+        }
+
+        const episodeId = item.episode.id;
+        setDownloadingEpisodes(prev => new Set(prev).add(episodeId));
+
+        try {
+            // Download the file
+            await DownloadService.downloadAudio(
+                user.id,
+                episodeId,
+                audioUrl,
+                item.episode.title,
+                (progress) => {
+                    const percent = progress.progress;
+                    console.log(`Download progress: ${(percent * 100).toFixed(0)}%`);
+                    setDownloadProgress(prev => new Map(prev).set(episodeId, percent));
                 }
-            >
-                {/*======== HEADER ===========*/}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()}>
-                        <Ionicons name="arrow-back" size={26} style={{ marginTop: 30 }} />
-                    </TouchableOpacity>
+            );
 
-                    <Text style={styles.headerTitle}>Edit Profile</Text>
+            // Cache episode metadata for offline access
+            await DownloadService.cacheEpisodeMetadata(episodeId, {
+                title: item.episode.title,
+                description: item.episode.description,
+                image_url: item.episode.image_url,
+                pub_date: item.episode.pub_date,
+                audio_url: audioUrl,
+            });
 
-                    <View style={{ width: 26 }}>
-                        <TouchableOpacity
-                            onPress={async () => {
-                                try {
-                                    const { error } = await supabase.auth.signOut();
-                                    if (error) throw error;
+            // Save to database with 'downloaded' status
+            await DatabaseService.addToLibrary(user.id, {
+                id: episodeId,
+                title: item.episode.title,
+                description: item.episode.description,
+                audioUrl: audioUrl,
+                image: item.episode.image_url,
+                pubDate: item.episode.pub_date,
+            }, 'downloaded');
 
-                                    store.dispatch(setLoggedOut());
+            Alert.alert("Success", "Episode downloaded successfully!");
 
-                                    navigation.replace("Login");
-                                } catch (error: any) {
-                                    Alert.alert("Error", error.message);
-                                }
-                            }}
-                            style={{ width: 26 }}
-                        >
-                            <Ionicons name="log-out-outline" size={26} color="#000" style={{ marginTop: 30 }} />
+            // Mark as downloaded
+            setDownloadedEpisodes(prev => new Set(prev).add(episodeId));
+        } catch (error: any) {
+            console.error("Download error:", error);
+            Alert.alert("Download Failed", error.message || "Failed to download episode");
+        } finally {
+            setDownloadingEpisodes(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(episodeId);
+                return newSet;
+            });
+            // Clear progress
+            setDownloadProgress(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(episodeId);
+                return newMap;
+            });
+        }
+    };
+
+    return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+            <View style={styles.container}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#A637FF" />
+                    }
+                >
+                    {/*======== HEADER ===========*/}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={() => navigation.goBack()}>
+                            <Ionicons name="arrow-back" size={26} style={{ marginTop: 30 }} />
                         </TouchableOpacity>
+
+                        <Text style={styles.headerTitle}>Edit Profile</Text>
+
+                        <View style={{ width: 26 }}>
+                            <TouchableOpacity
+                                onPress={async () => {
+                                    try {
+                                        const { error } = await supabase.auth.signOut();
+                                        if (error) throw error;
+
+                                        store.dispatch(setLoggedOut());
+
+                                        navigation.replace("Login");
+                                    } catch (error: any) {
+                                        Alert.alert("Error", error.message);
+                                    }
+                                }}
+                                style={{ width: 26 }}
+                            >
+                                <Ionicons name="log-out-outline" size={26} color="#000" style={{ marginTop: 30 }} />
+                            </TouchableOpacity>
+
+                        </View>
 
                     </View>
 
-                </View>
 
+                    <View style={{ alignItems: "center", marginTop: 40 }}>
 
-                <View style={{ alignItems: "center", marginTop: 40 }}>
+                        {/* AVATAR SECTION */}
+                        <View style={styles.avatarWrapper}>
+                            <StripeBackground />
+                            <TouchableOpacity onPress={() => setShowAvatarModal(true)} activeOpacity={0.8}>
+                                <Image
+                                    source={
+                                        avatarUrl
+                                            ? { uri: avatarUrl }
+                                            : require("../../assets/headphone.png")
+                                    }
+                                    style={styles.avatar}
+                                />
+                            </TouchableOpacity>
+                            {/* Edit Avatar Button */}
+                            <TouchableOpacity
+                                style={styles.editAvatarBtn}
+                                onPress={() => {
+                                    Alert.alert(
+                                        "Change Profile Picture",
+                                        "Choose an option",
+                                        [
+                                            {
+                                                text: "Take Photo",
+                                                onPress: () => handleImagePicker('camera')
+                                            },
+                                            {
+                                                text: "Choose from Gallery",
+                                                onPress: () => handleImagePicker('library')
+                                            },
+                                            {
+                                                text: "Cancel",
+                                                style: "cancel"
+                                            }
+                                        ]
+                                    );
+                                }}
+                            >
+                                <Ionicons name="camera" size={18} color="#fff" />
 
-                    {/* AVATAR SECTION */}
-                    <View style={styles.avatarWrapper}>
-                        <Image
-                            source={
-                                avatarUrl
-                                    ? { uri: avatarUrl }
-                                    : require("../../assets/headphone.png")
-                            }
-                            style={styles.avatar}
-                        />
-                        {/* Edit Avatar Button */}
-                        <TouchableOpacity
-                            style={styles.editAvatarBtn}
-                            onPress={() => {
-                                Alert.alert(
-                                    "Change Profile Picture",
-                                    "Choose an option",
-                                    [
-                                        {
-                                            text: "Take Photo",
-                                            onPress: () => handleImagePicker('camera')
-                                        },
-                                        {
-                                            text: "Choose from Gallery",
-                                            onPress: () => handleImagePicker('library')
-                                        },
-                                        {
-                                            text: "Cancel",
-                                            style: "cancel"
-                                        }
-                                    ]
-                                );
-                            }}
-                        >
-                            <Ionicons name="camera" size={18} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
+                            </TouchableOpacity>
+                        </View>
 
-                    {/*===== PURPLE CARD ======*/}
-                    <View style={styles.profileCard}>
-                        <Text style={styles.name}>{displayName}</Text>
+                        {/*===== PURPLE CARD ======*/}
+                        <View style={styles.profileCard}>
+                            <StripeBackground />
+                            <Text style={styles.name}>{displayName}</Text>
 
-                        <View style={styles.statsRow}>
-                            <View style={styles.statBox}>
-                                <Text style={styles.statNumber}>{stats.likedCount}</Text>
-                                <Text style={styles.statLabel}>Liked Podcasts</Text>
-                            </View>
+                            <View style={styles.statsRow}>
+                                <View style={styles.statBox}>
+                                    <Text style={styles.statNumber}>{stats.likedCount}</Text>
+                                    <Text style={styles.statLabel}>Liked Podcasts</Text>
+                                </View>
 
-                            <View style={styles.statBox}>
-                                <Text style={styles.statNumber}>{stats.followingCount}</Text>
-                                <Text style={styles.statLabel}>Following</Text>
+                                <View style={styles.statBox}>
+                                    <Text style={styles.statNumber}>{stats.followingCount}</Text>
+                                    <Text style={styles.statLabel}>Following</Text>
+                                </View>
                             </View>
                         </View>
                     </View>
-                </View>
 
 
-                {/*====== USERNAME INPUT ========*/}
-                <Text style={styles.label}>Username</Text>
-                <TextInput
-                    style={styles.input}
-                    value={username.toString()}
-                    onChangeText={setUsername}
-                />
+                    {/*====== USERNAME INPUT ========*/}
+                    <Text style={styles.label}>Username</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={username.toString()}
+                        onChangeText={setUsername}
+                    />
 
-                {/*=========== RECENTLY PLAYED ===========*/}
-                <Text style={styles.sectionTitle}>Recently Played</Text>
+                    {/*=========== RECENTLY PLAYED ===========*/}
+                    <Text style={styles.sectionTitle}>Recently Played</Text>
 
-                {loading ? (
-                    <ActivityIndicator size="small" color="#A637FF" style={{ marginTop: 20 }} />
-                ) : recentlyPlayed.length === 0 ? (
-                    <Text style={{ color: "gray", marginTop: 10 }}>No recently played episodes.</Text>
-                ) : (
-                    recentlyPlayed.map((item, index) => {
-                        // Convert database episode format to match PlayerScreen expected format
-                        const allEpisodes = recentlyPlayed.map(i => ({
-                            id: i.episode.id,
-                            title: i.episode.title,
-                            description: i.episode.description,
-                            audioUrl: i.episode.audio_url,
-                            image: i.episode.image_url,
-                            pubDate: i.episode.pub_date,
-                            duration: i.episode.duration,
-                        }));
+                    {loading ? (
+                        <ActivityIndicator size="small" color="#A637FF" style={{ marginTop: 20 }} />
+                    ) : recentlyPlayed.length === 0 ? (
+                        <Text style={{ color: "gray", marginTop: 10 }}>No recently played episodes.</Text>
+                    ) : (
+                        recentlyPlayed.map((item, index) => {
+                            // Convert database episode format to match PlayerScreen expected format
+                            const allEpisodes = recentlyPlayed.map(i => ({
+                                id: i.episode.id,
+                                title: i.episode.title,
+                                description: i.episode.description,
+                                audioUrl: i.episode.audio_url,
+                                image: i.episode.image_url,
+                                pubDate: i.episode.pub_date,
+                                duration: i.episode.duration,
+                            }));
 
-                        return (
-                            <View key={item.id} style={styles.row}>
-                                <Text style={styles.number}>{index + 1}.</Text>
+                            const episodeId = item.episode.id;
 
-                                <View style={styles.podcastCard}>
-                                    <Image
-                                        source={item.episode.image_url ? { uri: item.episode.image_url } : require("../../assets/pod1.jpg")}
-                                        style={styles.podcastImage}
-                                    />
-
-                                    <View style={styles.podcastContent}>
-                                        <Text style={styles.podcastTitle} numberOfLines={1}>{item.episode.title}</Text>
-                                        <Text style={styles.podcastSpeaker} numberOfLines={1}>{item.episode.pub_date}</Text>
-
-                                        <View style={styles.actions}>
-                                            <TouchableOpacity
-                                                style={styles.playBtn}
-                                                onPress={() => navigation.navigate("Player", {
-                                                    episodes: allEpisodes,
-                                                    index
-                                                })}
-                                            >
-                                                <Ionicons name="play" size={14} color="#fff" />
-                                                <Text style={styles.playText}>Play</Text>
-                                            </TouchableOpacity>
-
-                                            <FontAwesome6 name="download" size={20} style={styles.icon} />
-                                            <Ionicons
-                                                name="ellipsis-vertical"
-                                                size={20}
-                                                style={styles.icon}
-                                            />
-                                        </View>
+                            return (
+                                <View key={item.id} style={styles.recentPlayRow}>
+                                    <Text style={styles.recentPlayNumber}>{index + 1}.</Text>
+                                    <View style={styles.recentPlayCard}>
+                                        <PodcastCard
+                                            item={item}
+                                            onPlay={() => navigation.navigate("Player", {
+                                                episodes: allEpisodes,
+                                                index
+                                            })}
+                                            onDownload={() => handleDownload(item)}
+                                            downloading={downloadingEpisodes.has(episodeId)}
+                                            downloadProgress={downloadProgress.get(episodeId) || 0}
+                                            isDownloaded={downloadedEpisodes.has(episodeId)}
+                                        />
                                     </View>
                                 </View>
-                            </View>
-                        );
-                    })
-                )}
-            </ScrollView>
+                            );
+                        })
+                    )}
+                </ScrollView>
 
-            {/* SAVE BUTTON */}
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveChanges}>
-                <Text style={styles.saveText}>Save Changes</Text>
-            </TouchableOpacity>
-        </View>
+                {/* SAVE BUTTON */}
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveChanges}>
+                    <Text style={styles.saveText}>Save Changes</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Avatar Viewer Modal */}
+            <Modal
+                visible={showAvatarModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowAvatarModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowAvatarModal(false)}
+                >
+                    <Image
+                        source={
+                            avatarUrl
+                                ? { uri: avatarUrl }
+                                : require("../../assets/headphone.png")
+                        }
+                        style={styles.modalImage}
+                        resizeMode="contain"
+                    />
+                    <TouchableOpacity
+                        style={styles.modalCloseBtn}
+                        onPress={() => setShowAvatarModal(false)}
+                    >
+                        <Ionicons name="close-circle" size={44} color="#fff" />
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+        </SafeAreaView>
     );
 }
 
@@ -359,7 +476,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        marginTop: 15,
+        // marginTop: 10,
     },
     headerTitle: {
         fontSize: 20,
@@ -384,6 +501,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
+        // overflow: "hidden",s
+
+
 
     },
 
@@ -391,6 +511,8 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
+
+
     },
 
     editAvatarBtn: {
@@ -416,7 +538,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         width: 286,
         height: 224,
-        marginTop: 60
+        marginTop: 60,
+        overflow: "hidden",
     },
 
     name: {
@@ -449,12 +572,12 @@ const styles = StyleSheet.create({
     label: {
         marginTop: 25,
         fontSize: 14,
-        color: "gray",
+        color: "#8D5CF6",
     },
 
     input: {
         borderWidth: 1,
-        borderColor: "#D1C6FF",
+        borderColor: "#8D5CF6",
         borderRadius: 12,
         padding: 12,
         marginTop: 8,
@@ -467,72 +590,21 @@ const styles = StyleSheet.create({
         fontWeight: "700",
     },
 
-    row: {
+    recentPlayRow: {
         flexDirection: "row",
         alignItems: "center",
         marginTop: 15,
     },
 
-    number: {
-        width: 25,
+    recentPlayNumber: {
+        width: 20,
         fontSize: 17,
         fontWeight: "700",
-        marginRight: 10,
+        // marginRight: 10,
     },
 
-    podcastCard: {
-        flexDirection: "row",
+    recentPlayCard: {
         flex: 1,
-        backgroundColor: "#F8F8F8",
-        padding: 12,
-        borderRadius: 14,
-    },
-
-    podcastImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 10,
-    },
-
-    podcastContent: {
-        flex: 1,
-        marginLeft: 10,
-    },
-
-    podcastTitle: {
-        fontSize: 15,
-        fontWeight: "700",
-    },
-
-    podcastSpeaker: {
-        color: "gray",
-        marginTop: 2,
-    },
-
-    actions: {
-        flexDirection: "row",
-        marginTop: 10,
-        alignItems: "center",
-    },
-
-    playBtn: {
-        backgroundColor: "#A637FF",
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 12,
-        height: 28,
-        borderRadius: 20,
-    },
-
-    playText: {
-        color: "#fff",
-        marginLeft: 4,
-        fontWeight: "600",
-        fontSize: 12,
-    },
-
-    icon: {
-        marginLeft: 15,
     },
 
     saveBtn: {
@@ -550,5 +622,23 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 16,
         fontWeight: "700",
+    },
+
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.9)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    modalImage: {
+        width: "90%",
+        height: "70%",
+    },
+
+    modalCloseBtn: {
+        position: "absolute",
+        top: 50,
+        right: 20,
     },
 });

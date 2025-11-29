@@ -26,6 +26,12 @@ export interface LibraryItem {
 }
 
 export const DatabaseService = {
+    // --- Helper ---
+    getEpisodeIdFromUrl(audioUrl: string): string {
+        if (!audioUrl) return `ep_${Date.now()}`;
+        return audioUrl.split('/').pop()?.split('?')[0] || `ep_${Date.now()}`;
+    },
+
     // --- Profiles ---
     async ensureUserProfile(userId: string, userEmail?: string, displayName?: string) {
         // Check if profile exists
@@ -183,6 +189,7 @@ export const DatabaseService = {
                     user_id: userId,
                     episode_id: episode.id || episode.audioUrl,
                     status: status,
+                    created_at: new Date().toISOString(),
                 }, { onConflict: 'user_id, episode_id, status' });
 
             if (error) {

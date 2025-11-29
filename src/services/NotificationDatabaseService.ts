@@ -9,7 +9,7 @@ export const NotificationDatabaseService = {
         try {
             const { error } = await supabase
                 .from('user_notifications')
-                .insert({
+                .upsert({
                     id: notification.id,
                     user_id: userId,
                     title: notification.title,
@@ -17,7 +17,7 @@ export const NotificationDatabaseService = {
                     data: notification.data || null,
                     read: notification.read ?? false,
                     created_at: notification.date ? new Date(notification.date).toISOString() : new Date().toISOString()
-                });
+                }, { onConflict: 'id' });
 
             if (error) {
                 console.error('Error saving notification to Supabase:', error);

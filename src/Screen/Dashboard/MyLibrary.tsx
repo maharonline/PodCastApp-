@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Alert } from "react-native";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -7,6 +7,8 @@ import { useAppSelector } from "../../redux/hooks";
 import { DatabaseService, LibraryItem } from "../../services/database";
 import { DownloadService } from "../../services/DownloadService";
 import { supabase } from "../../supabase";
+import PodcastCard from "../../components/PodCastCard";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function MyLibrary() {
     const navigation = useNavigation<any>();
@@ -17,25 +19,33 @@ export default function MyLibrary() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
+    const [downloadingEpisodes, setDownloadingEpisodes] = useState<Set<string>>(new Set());
+    const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
+    const [downloadedEpisodeIds, setDownloadedEpisodeIds] = useState<Set<string>>(new Set());
+
     const fetchLibrary = async () => {
         if (!user?.id) {
             setLibraryItems([]);
             setDownloadedItems([]);
+            setDownloadedEpisodeIds(new Set());
             setLoading(false);
             return;
         }
         try {
             setLoading(true);
 
+            // ALWAYS fetch downloaded IDs for checkmarks
+            const downloads = await DownloadService.getDownloadedEpisodes(user.id);
+            const downloadIds = new Set(downloads.map((d: any) => d.episode_id));
+            setDownloadedEpisodeIds(downloadIds);
+
             if (activeTab === "downloads") {
                 // Fetch downloads with offline support
                 console.log(`MyLibrary: Fetching downloads for user:`, user.id);
-                const downloads = await DownloadService.getDownloadedEpisodes(user.id);
-                console.log(`MyLibrary: Got ${downloads?.length || 0} downloads`);
 
                 // Get episode details with cached metadata fallback
                 const episodesWithDetails = await Promise.all(
-                    downloads.map(async (download) => {
+                    downloads.map(async (download: any) => {
                         try {
                             const { data: episode } = await supabase
                                 .from("episodes")
@@ -82,6 +92,96 @@ export default function MyLibrary() {
         }
     };
 
+    // Handle download
+    const handleDownload = useCallback(async (item: any) => {
+        const episode = item.episode || item;
+        const audioUrl = episode.audio_url || episode.audioUrl;
+
+        if (!audioUrl) {
+            Alert.alert("Error", "No audio URL available");
+            return;
+        }
+
+        if (!user?.id) {
+            Alert.alert("Error", "Please log in to download episodes");
+            return;
+        }
+
+        const episodeId = audioUrl;
+        setDownloadingEpisodes(prev => new Set(prev).add(episodeId));
+
+        // Extract a safe ID (same logic as Home.tsx)
+        const safeEpisodeId = DatabaseService.getEpisodeIdFromUrl(audioUrl);
+
+        try {
+            // Ensure episode exists in database BEFORE downloading
+            // Normalize episode object for upsert
+            const episodeData = {
+                title: episode.title,
+                description: episode.description || "",
+                pubDate: episode.pub_date || episode.pubDate,
+                audioUrl: audioUrl,
+                image: episode.image_url || episode.image,
+                id: safeEpisodeId
+            };
+            console.log("episodeData", episode.image_url);
+
+            await DatabaseService.upsertEpisode(episodeData);
+
+            // Download the file
+            await DownloadService.downloadAudio(
+                user.id,
+                safeEpisodeId,
+                audioUrl,
+                episode.title,
+                (progress) => {
+                    const percent = progress.progress;
+                    setDownloadProgress(prev => new Map(prev).set(episodeId, percent));
+                }
+            );
+
+            // Cache episode metadata for offline access
+            await DownloadService.cacheEpisodeMetadata(safeEpisodeId, {
+                title: episode.title,
+                description: episode.description || "",
+                image_url: episode.image_url || episode.image,
+                pub_date: episode.pub_date || episode.pubDate,
+                audio_url: audioUrl,
+            });
+
+            // Save to database with 'downloaded' status
+            await DatabaseService.addToLibrary(user.id, {
+                ...episodeData,
+                id: safeEpisodeId
+            }, 'downloaded');
+
+            Alert.alert("Success", "Episode downloaded successfully!");
+
+            // Mark as downloaded
+            setDownloadedEpisodeIds(prev => new Set(prev).add(safeEpisodeId));
+
+            // Refresh library if we are in downloads tab (optional, but good)
+            if (activeTab === "downloads") {
+                fetchLibrary();
+            }
+
+        } catch (error: any) {
+            console.error("Download error:", error);
+            Alert.alert("Download Failed", error.message || "Failed to download episode");
+        } finally {
+            setDownloadingEpisodes(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(episodeId);
+                return newSet;
+            });
+            setDownloadProgress(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(episodeId);
+                return newMap;
+            });
+        }
+    }, [user, activeTab]);
+
     const handlePlay = (item: any, index: number) => {
         // Navigate to Player with the episode
         const episodes = activeTab === "liked" ? libraryItems : downloadedItems;
@@ -94,6 +194,7 @@ export default function MyLibrary() {
 
                 // Provide fallback image to prevent TrackPlayer error
                 const imageUrl = e.episode?.image_url || "https://via.placeholder.com/300x300.png?text=Podcast";
+
 
                 return {
                     title: e.episode?.title || "Unknown",
@@ -119,119 +220,109 @@ export default function MyLibrary() {
     };
 
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={{ paddingBottom: 60 }}
-            showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-            {/* TOP HEADER */}
-            <View style={styles.header}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="mic-outline" size={24} color="#A637FF" />
-                    <Text style={styles.heading}> My Library</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+            <ScrollView
+                style={styles.container}
+                contentContainerStyle={{ paddingBottom: 60 }}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+                {/* TOP HEADER */}
+                <View style={styles.header}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons name="mic-outline" size={24} color="#A637FF" />
+                        <Text style={styles.heading}> My Library</Text>
+                    </View>
+
+                    <TouchableOpacity onPress={onRefresh} style={styles.headerIcon}>
+                        <Ionicons name="refresh" size={22} color="#000" />
+                    </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity onPress={onRefresh} style={styles.headerIcon}>
-                    <Ionicons name="refresh" size={22} color="#000" />
-                </TouchableOpacity>
-            </View>
-
-            {/* TABS */}
-            <View style={styles.tabs}>
-                <TouchableOpacity onPress={() => setActiveTab("liked")}>
-                    <View
-                        style={[
-                            styles.tabItem,
-                            activeTab === "liked" && styles.activeTab,
-                        ]}
-                    >
-                        <Text
-                            style={
-                                activeTab === "liked"
-                                    ? styles.activeTabText
-                                    : styles.inactiveTab
-                            }
+                {/* TABS */}
+                <View style={styles.tabs}>
+                    <TouchableOpacity onPress={() => setActiveTab("liked")}>
+                        <View
+                            style={[
+                                styles.tabItem,
+                                activeTab === "liked" && styles.activeTab,
+                            ]}
                         >
-                            Liked
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setActiveTab("downloads")}>
-                    <View
-                        style={[
-                            styles.tabItem,
-                            activeTab === "downloads" && styles.activeTab,
-                        ]}
-                    >
-                        <Text
-                            style={
-                                activeTab === "downloads"
-                                    ? styles.activeTabText
-                                    : styles.inactiveTab
-                            }
-                        >
-                            Downloads
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-            </View>
-
-            {/* LOADING STATE */}
-            {loading && !refreshing ? (
-                <View style={{ marginTop: 50 }}>
-                    <ActivityIndicator size="large" color="#A637FF" />
-                </View>
-            ) : (
-                <>
-                    {/* EMPTY STATE */}
-                    {(activeTab === "liked" ? libraryItems : downloadedItems).length === 0 ? (
-                        <View style={{ alignItems: "center", marginTop: 50 }}>
-                            <Text style={{ color: "gray", fontSize: 16 }}>
-                                {!user?.id
-                                    ? "Please log in to view your library"
-                                    : `No episodes in ${activeTab}`}
+                            <Text
+                                style={
+                                    activeTab === "liked"
+                                        ? styles.activeTabText
+                                        : styles.inactiveTab
+                                }
+                            >
+                                Liked
                             </Text>
                         </View>
-                    ) : (
-                        /* PODCAST LIST */
-                        (activeTab === "liked" ? libraryItems : downloadedItems).map((item, index) => (
-                            <View key={item.id} style={styles.row}>
-                                {/* Numbering OUTSIDE Box */}
-                                <Text style={styles.podcastNumber}>{index + 1}.</Text>
+                    </TouchableOpacity>
 
-                                {/* Card */}
-                                <View style={styles.podcastItem}>
-                                    <Image
-                                        source={item.episode?.image_url ? { uri: item.episode.image_url } : require("../../assets/pod1.jpg")}
-                                        style={styles.podcastImage}
-                                    />
+                    <TouchableOpacity onPress={() => setActiveTab("downloads")}>
+                        <View
+                            style={[
+                                styles.tabItem,
+                                activeTab === "downloads" && styles.activeTab,
+                            ]}
+                        >
+                            <Text
+                                style={
+                                    activeTab === "downloads"
+                                        ? styles.activeTabText
+                                        : styles.inactiveTab
+                                }
+                            >
+                                Downloads
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
 
-                                    <View style={styles.podcastContent}>
-                                        <Text style={styles.podcastTitle} numberOfLines={2}>{item.episode?.title}</Text>
-                                        <Text style={styles.podcastSpeaker} numberOfLines={1}>{item.episode?.pub_date}</Text>
-
-                                        <View style={styles.podcastActions}>
-                                            <TouchableOpacity
-                                                style={styles.playBtn}
-                                                onPress={() => handlePlay(item, index)}
-                                            >
-                                                <Ionicons name="play" size={14} color="#fff" />
-                                                <Text style={styles.playBtnText}>Play</Text>
-                                            </TouchableOpacity>
-
-                                            <FontAwesome6 name="download" size={20} style={styles.actionIcon} />
-                                            <Ionicons name="ellipsis-vertical" size={20} style={styles.actionIcon} />
-                                        </View>
-                                    </View>
-                                </View>
+                {/* LOADING STATE */}
+                {loading && !refreshing ? (
+                    <View style={{ marginTop: 50 }}>
+                        <ActivityIndicator size="large" color="#A637FF" />
+                    </View>
+                ) : (
+                    <>
+                        {/* EMPTY STATE */}
+                        {(activeTab === "liked" ? libraryItems : downloadedItems).length === 0 ? (
+                            <View style={{ alignItems: "center", marginTop: 50 }}>
+                                <Text style={{ color: "gray", fontSize: 16 }}>
+                                    {!user?.id
+                                        ? "Please log in to view your library"
+                                        : `No episodes in ${activeTab}`}
+                                </Text>
                             </View>
-                        ))
-                    )}
-                </>
-            )}
-        </ScrollView>
+                        ) : (
+                            /* PODCAST LIST */
+                            (activeTab === "liked" ? libraryItems : downloadedItems).map((item, index) => {
+                                const audioUrl = item.episode?.audio_url || item.episode?.audioUrl || item.audioUrl;
+
+                                // Check if downloaded using the safe ID derived from URL
+                                // This handles cases where Liked item has ID=URL but Download has ID=Filename
+                                const safeId = DatabaseService.getEpisodeIdFromUrl(audioUrl);
+                                const isDownloaded = downloadedEpisodeIds.has(safeId);
+
+                                return (
+                                    <PodcastCard
+                                        key={item.id || index}
+                                        item={item.episode || item}  // liked tab ya downloaded tab
+                                        onPlay={() => handlePlay(item, index)}
+                                        onDownload={() => handleDownload(item)}
+                                        downloading={downloadingEpisodes.has(audioUrl)}
+                                        downloadProgress={downloadProgress.get(audioUrl) || 0}
+                                        isDownloaded={isDownloaded}
+                                    />
+                                )
+                            })
+                        )}
+                    </>
+                )}
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
@@ -242,7 +333,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginTop: 20,
+
         marginBottom: 15,
     },
 

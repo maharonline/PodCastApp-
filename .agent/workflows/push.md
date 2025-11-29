@@ -1,30 +1,18 @@
 ---
-description: Push code changes to GitHub
+description: Push code changes to both personal and organization GitHub repositories
 ---
 
-# Push Code to GitHub
-
-This workflow commits and pushes your daily changes to GitHub.
-
-## Steps
-
-// turbo-all
 1. Stage all changes
+// turbo
+2. Commit changes with a default message if none provided
+// turbo
+3. Push to personal repository (origin)
+// turbo
+4. Push to organization repository (organization)
+
 ```bash
 git add .
-```
-
-2. Commit with timestamp
-```bash
-git commit -m "Daily update: $(date +%Y-%m-%d)"
-```
-
-3. Push to GitHub
-```bash
+git commit -m "Update code"
 git push origin main
+git push organization main
 ```
-
-## Notes
-- All changes in your working directory will be committed
-- The commit message includes the current date
-- Changes are pushed to the main branch on GitHub

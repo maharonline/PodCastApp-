@@ -8,7 +8,8 @@ import { useAppSelector } from "../../redux/hooks";
 import { DownloadService } from "../../services/DownloadService";
 import { DatabaseService } from "../../services/database";
 import { SUPABASE_ANON_KEY } from "@env";
-// import { EpisodeItem } from "../../components/episodes";
+import PodcastCard from "../../components/PodCastCard";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface Episode {
   title: string;
@@ -17,82 +18,6 @@ interface Episode {
   audioUrl: string | null;
   image: string;
 }
-
-// Memoized Episode Item Component for better performance
-const EpisodeItem = React.memo(({ item, index, onPlay, onDownload, downloading, downloadProgress, isDownloaded }: {
-  item: Episode;
-  index: number;
-  onPlay: (index: number) => void;
-  onDownload: (episode: Episode) => void;
-  downloading: boolean;
-  downloadProgress: number;
-  isDownloaded: boolean;
-}) => (
-  <View style={styles.podcastItem}>
-    <Image source={{ uri: item.image }} style={styles.podcastImage} />
-
-    <View style={styles.podcastContent}>
-      <Text style={styles.podcastTitle}>{item.title}</Text>
-      <Text style={styles.podcastSpeaker}>{item.pubDate}</Text>
-
-      <View style={styles.podcastActions}>
-        <TouchableOpacity
-          style={styles.playBtn}
-          onPress={() => onPlay(index)}
-        >
-          <Ionicons name="play" size={16} color="#fff" />
-          <Text style={styles.playBtnText}>Play</Text>
-        </TouchableOpacity>
-
-        <View style={styles.actionIconsRow}>
-          {isDownloaded ? (
-            <View style={styles.downloadedContainer}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => onDownload(item)} disabled={downloading}>
-              {downloading ? (
-                <View style={styles.progressContainer}>
-                  <Svg width="24" height="24" viewBox="0 0 24 24">
-                    <Circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="#E0E0E0"
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                    <Circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="#4CAF50"
-                      strokeWidth="2"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 10}`}
-                      strokeDashoffset={`${2 * Math.PI * 10 * (1 - downloadProgress)}`}
-                      strokeLinecap="round"
-                      transform="rotate(-90 12 12)"
-                    />
-                  </Svg>
-                  <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
-                </View>
-              ) : (
-                <Feather
-                  name="download"
-                  size={20}
-                  style={styles.actionIcon}
-                />
-              )}
-            </TouchableOpacity>
-          )}
-          <Feather name="share-2" size={20} style={styles.actionIcon} />
-          <Feather name="more-vertical" size={20} style={styles.actionIcon} />
-        </View>
-      </View>
-    </View>
-  </View>
-));
 
 export default function Home() {
 
@@ -171,9 +96,7 @@ export default function Home() {
     const episodeId = episode.audioUrl;
     setDownloadingEpisodes(prev => new Set(prev).add(episodeId));
 
-    // Extract a safe ID for the download service (must not be a URL)
-    // We take the last part of the URL and remove any query parameters
-    const safeEpisodeId = episode.audioUrl.split('/').pop()?.split('?')[0] || `ep_${Date.now()}`;
+    const safeEpisodeId = DatabaseService.getEpisodeIdFromUrl(episode.audioUrl);
 
     try {
       // Ensure episode exists in database BEFORE downloading
@@ -234,10 +157,10 @@ export default function Home() {
 
   // Memoized render function
   const renderEpisode = useCallback(({ item, index }: { item: Episode; index: number }) => (
-    <EpisodeItem
+    <PodcastCard
       item={item}
       index={index}
-      onPlay={handlePlay}
+      onPlay={() => handlePlay(index)}
       onDownload={handleDownload}
       downloading={downloadingEpisodes.has(item.audioUrl || '')}
       downloadProgress={downloadProgress.get(item.audioUrl || '') || 0}
@@ -261,78 +184,80 @@ export default function Home() {
   }
 
   return (
-    <FlatList
-      data={episodes}
-      keyExtractor={(item, idx) => item.audioUrl || String(idx)}
-      renderItem={renderEpisode}
-      contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
-      // Performance optimizations
-      getItemLayout={getItemLayout}
-      removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
-      updateCellsBatchingPeriod={50}
-      initialNumToRender={10}
-      windowSize={5}
-      ListHeaderComponent={() => (
-        <>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle}>Hello {user?.name || user?.display_name} !</Text>
-              <Text style={styles.headerSubtitle}>Find your favorite podcast</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.notificationBtn}
-              onPress={() => navigation.navigate("Notifications")}
-            >
-              <Ionicons name="notifications-outline" size={22} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {episodes.length > 0 && (
-            <View style={styles.banner}>
-              <Image source={{ uri: episodes[0].image }} style={styles.bannerImage} />
-              <View style={styles.bannerContentRow}>
-                <View style={styles.bannerText}>
-                  <Text style={styles.bannerCategory}>Tech Podcast</Text>
-                  <Text style={styles.bannerTitle}>{episodes[0].title}</Text>
-                  <Text style={styles.bannerSubtitle}>Latest Episode</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.playNowBtn}
-                  onPress={() => navigation.navigate("Player", { episodes, index: 0 })}
-                >
-                  <Text style={styles.playNowText}>Play Now</Text>
-                  <Ionicons name="play" size={16} color="#000" />
-                </TouchableOpacity>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+      <FlatList
+        data={episodes.slice(0, 5)}
+        keyExtractor={(item, idx) => item.audioUrl || String(idx)}
+        renderItem={renderEpisode}
+        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        // Performance optimizations
+        getItemLayout={getItemLayout}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={5}
+        ListHeaderComponent={() => (
+          <>
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.headerTitle}>Hello {user?.name || user?.display_name} !</Text>
+                <Text style={styles.headerSubtitle}>Find your favorite podcast</Text>
               </View>
-            </View>
-          )}
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>New Episodes</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("AllEpisodes", { episodes })}>
-              <Text style={styles.sectionSeeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    />
+              <TouchableOpacity
+                style={styles.notificationBtn}
+                onPress={() => navigation.navigate("Notifications")}
+              >
+                <Ionicons name="notifications-outline" size={22} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {episodes.length > 0 && (
+              <View style={styles.banner}>
+                <Image source={{ uri: episodes[0].image }} style={styles.bannerImage} />
+                <View style={styles.bannerContentRow}>
+                  <View style={styles.bannerText}>
+                    <Text style={styles.bannerCategory}>Tech Podcast</Text>
+                    <Text style={styles.bannerTitle}>{episodes[0].title}</Text>
+                    <Text style={styles.bannerSubtitle}>Latest Episode</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.playNowBtn}
+                    onPress={() => navigation.navigate("Player", { episodes, index: 0 })}
+                  >
+                    <Text style={styles.playNowText}>Play Now</Text>
+                    <Ionicons name="play" size={16} color="#000" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>New Episodes</Text>
+              <TouchableOpacity onPress={() => navigation.navigate("AllEpisodes", { episodes })}>
+                <Text style={styles.sectionSeeAll}>See all</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      />
+    </SafeAreaView>
   );
 }
 
 // STYLES (unchanged)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
-  header: { marginTop: 40, flexDirection: "row", justifyContent: "space-between" },
+  header: { marginTop: 10, flexDirection: "row", justifyContent: "space-between" },
   headerTitle: { fontSize: 24, fontWeight: "700" },
   headerSubtitle: { color: "gray", marginTop: 2 },
   notificationBtn: {
