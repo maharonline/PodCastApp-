@@ -353,8 +353,8 @@ const styles = StyleSheet.create({
     },
 
     heading: {
-        fontSize: 20,
-        fontWeight: "700",
+        fontSize: 17,
+        fontFamily: 'Inter-Bold',
         color: "#000",
     },
 
@@ -388,12 +388,13 @@ const styles = StyleSheet.create({
 
     activeTabText: {
         fontSize: 13,
-        fontWeight: "600",
+        fontFamily: 'Inter-SemiBold',
         color: "#A637FF",
     },
 
     inactiveTab: {
         fontSize: 13,
+        fontFamily: 'Inter-SemiBold',
         color: "gray",
     },
 

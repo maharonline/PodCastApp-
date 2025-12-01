@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 
 const StripeBackground = () => {
-    const stripes = Array.from({ length: 40 });
+    const stripes = Array.from({ length: 80 }); // Increased count for full coverage
 
     return (
         <View style={styles.stripeContainer}>
@@ -10,7 +10,7 @@ const StripeBackground = () => {
                     key={i}
                     style={[
                         styles.stripe,
-                        { transform: [{ rotate: "-10deg" }], left: i * 12 },
+                        { transform: [{ rotate: "-45deg" }], left: i * 20 - 300 }, // Start further left and cover more width
                     ]}
                 />
             ))}
@@ -27,9 +27,11 @@ const styles = StyleSheet.create({
 
     stripe: {
         width: 8,
-        height: "200%",
+        height: "300%", // Increased height for better coverage
+        // backgroundColor: "#1F1F1F",
         backgroundColor: "rgba(255,255,255,0.08)",
         position: "absolute",
+        top: -100, // Start higher to cover top area
     },
 });
 

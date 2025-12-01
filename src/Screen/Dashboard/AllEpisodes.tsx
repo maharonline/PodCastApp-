@@ -195,6 +195,6 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: "700",
+        fontFamily: 'Manrope-Bold',
     },
 });

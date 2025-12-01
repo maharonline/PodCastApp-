@@ -209,7 +209,7 @@ export default function Home() {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={styles.headerTitle}>Hello {user?.name || user?.display_name} !</Text>
+                <Text style={styles.headerTitle}>Hello {user?.name || user?.display_name}!</Text>
                 <Text style={styles.headerSubtitle}>Find your favorite podcast</Text>
               </View>
 
@@ -228,50 +228,6 @@ export default function Home() {
               </TouchableOpacity>
             </View>
 
-            {/* {episodes.length > 0 && (
-              <View style={styles.banner}>
-                <Image source={{ uri: episodes[0].image }} style={styles.bannerImage} />
-                <View style={styles.bannerContentRow}>
-                  <View style={styles.bannerText}>
-                    <Text style={styles.bannerCategory}>Tech Podcast</Text>
-                    <Text style={styles.bannerTitle}>{episodes[0].title}</Text>
-                    <Text style={styles.bannerSubtitle}>Latest Episode</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.playNowBtn}
-                    onPress={() => navigation.navigate("Player", { episodes, index: 0 })}
-                  >
-                    <Text style={styles.playNowText}>Play Now</Text>
-                    <Ionicons name="play" size={16} color="#000" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )} */}
-            {/* {episodes.length > 0 && (
-              <View style={{ marginTop: 25 }}>
-                <FlatList
-                  data={episodes.slice(0, 3)} // last 3 episodes
-                  keyExtractor={(item) => item.audioUrl || item.title}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingLeft: 20, paddingRight: 10 }}
-                  renderItem={({ item, index }) => (
-                    <View style={styles.bannerHorizontalItem}>
-                      <Image source={{ uri: item.image }} style={styles.bannerImageHorizontal} />
-                      <View style={styles.bannerTextHorizontal}>
-                        <Text style={styles.bannerTitleHorizontal} numberOfLines={1}>
-                          {item.title}
-                        </Text>
-                        <Text style={styles.bannerSubtitleHorizontal}>
-                          Latest Episode
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                />
-              </View>
-            )} */}
             {episodes.length > 0 && (
               <View style={{ marginTop: 25 }}>
                 <FlatList
@@ -282,7 +238,7 @@ export default function Home() {
                   // contentContainerStyle={{ paddingLeft: 20, paddingRight: 10 }}
                   renderItem={({ item, index }) => (
                     <View style={[styles.banner, { width: 285, marginRight: 15 }]}>
-                      <Image source={{ uri: item.image }} style={[styles.bannerImage, { width: 285, height: 150 }]} />
+                      <Image source={{ uri: item.image }} style={[styles.bannerImage]} />
                       <View style={styles.bannerContentRow}>
                         <View style={styles.bannerText}>
                           <Text style={styles.bannerCategory}>Tech Podcast</Text>
@@ -343,23 +299,25 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
   header: { marginTop: 10, flexDirection: "row", justifyContent: "space-between" },
-  headerTitle: { fontSize: 24, fontWeight: "700" },
-  headerSubtitle: { color: "gray", marginTop: 2 },
+  headerTitle: { fontSize: 18, fontFamily: 'Inter-SemiBold' },
+  headerSubtitle: { color: "gray", marginTop: 2, fontFamily: 'Inter-Regular', fontSize: 13 },
   notificationBtn: {
-    backgroundColor: "#F2F2F2",
+    // backgroundColor: "#F2F2F2",
     width: 38,
     height: 38,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
   banner: {
-    marginTop: 25,
+    marginTop: 10,
     borderRadius: 16,
     overflow: "hidden",
     position: "relative",
   },
-  bannerImage: { width: "100%", height: 180 },
+  bannerImage: { width: 300, height: 168, },
   bannerContentRow: {
     position: "absolute",
     bottom: 0,
@@ -371,8 +329,8 @@ const styles = StyleSheet.create({
   },
   bannerCategory: { color: "white", fontSize: 13 },
   bannerText: { flex: 1, padding: 12 },
-  bannerTitle: { fontSize: 20, fontWeight: "700", marginTop: 5, color: "white" },
-  bannerSubtitle: { color: "white", marginBottom: 10 },
+  bannerTitle: { fontSize: 20, fontFamily: 'Inter-Bold', marginTop: 5, color: "#fff" },
+  bannerSubtitle: { color: "white", marginBottom: 10, fontFamily: 'Inter-Regular' },
   playNowBtn: {
     backgroundColor: "white",
     paddingVertical: 10,
@@ -381,10 +339,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  playNowText: { color: "black", fontWeight: "600", marginRight: 8 },
+  playNowText: { color: "black", fontFamily: 'Inter-Regular', marginRight: 8 },
   sectionHeader: { marginTop: 25, flexDirection: "row", justifyContent: "space-between" },
-  sectionTitle: { fontSize: 18, fontWeight: "700" },
-  sectionSeeAll: { color: "#A637FF" },
+  sectionTitle: { fontSize: 16, fontFamily: 'Inter-SemiBold' },
+  sectionSeeAll: { color: "#A637FF", fontFamily: 'Inter-Regular', textDecorationLine: 'underline' },
   podcastItem: {
     flexDirection: "row",
     marginTop: 20,
@@ -449,33 +407,33 @@ const styles = StyleSheet.create({
   /* Horizontal Scroll */
   horizontalScroll: { marginTop: 15 },
   trendingImage: {
-    width: 145,
+    width: 153,
     height: 175,
     borderRadius: 16,
     marginRight: 15
   },
 
   /* Banner Horizontal Scroll */
-  bannerHorizontalItem: {
-    width: 200,
-    marginRight: 15,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#000",
-  },
-  bannerImageHorizontal: {
-    width: "100%",
-    height: 120,
-  },
-  bannerTextHorizontal: {
-    position: "absolute",
-    bottom: 0,
-    left: 10,
-    right: 10,
-    padding: 8,
-  },
-  bannerTitleHorizontal: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  bannerSubtitleHorizontal: { color: "#fff", fontSize: 12 },
+  // bannerHorizontalItem: {
+  //   width: 200,
+  //   marginRight: 15,
+  //   borderRadius: 16,
+  //   overflow: "hidden",
+  //   backgroundColor: "#000",
+  // },
+  // bannerImageHorizontal: {
+  //   width: "100%",
+  //   height: 120,
+  // },
+  // bannerTextHorizontal: {
+  //   position: "absolute",
+  //   bottom: 0,
+  //   left: 10,
+  //   right: 10,
+  //   padding: 8,
+  // },
+  // bannerTitleHorizontal: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  // bannerSubtitleHorizontal: { color: "#fff", fontSize: 12 },
 
 });
 

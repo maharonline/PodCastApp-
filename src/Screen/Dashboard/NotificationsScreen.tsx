@@ -5,6 +5,7 @@ import { markAllAsRead, clearNotifications, NotificationItem } from '../../redux
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NotificationDatabaseService } from '../../services/NotificationDatabaseService';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const NotificationsScreen = () => {
     const dispatch = useAppDispatch();
@@ -96,31 +97,33 @@ const NotificationsScreen = () => {
     );
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#000" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Notifications</Text>
-                <TouchableOpacity onPress={handleClearAll} style={styles.clearButton}>
-                    <Text style={styles.clearText}>Clear</Text>
-                </TouchableOpacity>
-            </View>
-
-            {notifications.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
-                    <Text style={styles.emptyText}>No notifications yet</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#000" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Notifications</Text>
+                    <TouchableOpacity onPress={handleClearAll} style={styles.clearButton}>
+                        <Text style={styles.clearText}>Clear</Text>
+                    </TouchableOpacity>
                 </View>
-            ) : (
-                <FlatList
-                    data={notifications}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.listContent}
-                />
-            )}
-        </View>
+
+                {notifications.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
+                        <Text style={styles.emptyText}>No notifications yet</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={notifications}
+                        renderItem={renderItem}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.listContent}
+                    />
+                )}
+            </View>
+        </SafeAreaView>
     );
 };
 
@@ -134,15 +137,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 50,
+        paddingTop: 20,
         paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
     backButton: { padding: 5 },
-    headerTitle: { fontSize: 20, fontWeight: '700' },
+    headerTitle: { fontSize: 20, fontFamily: 'Manrope-SemiBold' },
     clearButton: { padding: 5 },
-    clearText: { color: '#A637FF', fontWeight: '600' },
+    clearText: { color: '#A637FF', fontFamily: 'Manrope-Bold' },
     listContent: { padding: 20 },
     itemContainer: {
         flexDirection: 'row',
@@ -165,9 +168,9 @@ const styles = StyleSheet.create({
         marginRight: 15,
     },
     contentContainer: { flex: 1 },
-    title: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-    body: { fontSize: 14, color: '#666', marginBottom: 6 },
-    date: { fontSize: 12, color: '#999' },
+    title: { fontSize: 16, fontFamily: 'Inter-SemiBold', marginBottom: 4 },
+    body: { fontSize: 14, color: '#666', marginBottom: 6, fontFamily: 'Inter-Medium' },
+    date: { fontSize: 12, color: '#999', fontFamily: 'Inter-Medium' },
     unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#A637FF', marginLeft: 10 },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     emptyText: { marginTop: 20, fontSize: 16, color: '#999' },

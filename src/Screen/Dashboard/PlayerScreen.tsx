@@ -335,7 +335,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
             </Text>
 
             <TouchableOpacity onPress={toggleLike}>
-              <Ionicons name={isLiked ? "bookmark" : "bookmark-outline"} size={24} color={isLiked ? "#A637FF" : "#000"} />
+              <Ionicons name={isLiked ? "bookmark" : "bookmark-outline"} style={styles.bookmarkIcon} size={24} color={isLiked ? "#A637FF" : "#000"} />
             </TouchableOpacity>
           </View>
 
@@ -459,16 +459,23 @@ const styles = StyleSheet.create({
 
   screenTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: 'Inter-SemiBold',
     flex: 1,
+  },
+
+  bookmarkIcon: {
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+    borderRadius: 20,
+    padding: 5,
   },
 
   podcastImage: {
     width: "100%",
-    height: 260,
-    borderRadius: 18,
-    marginTop: 40,
-    marginBottom: 20,
+    height: 350,
+    borderRadius: 40,
+    marginTop: 20,
+    // marginBottom: 20,
   },
 
   author: {
@@ -479,7 +486,7 @@ const styles = StyleSheet.create({
 
   podcastTitle: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: 'Inter-SemiBold',
     textAlign: "center",
     marginTop: 5,
   },
@@ -487,6 +494,7 @@ const styles = StyleSheet.create({
   episode: {
     fontSize: 14,
     textAlign: "center",
+    fontFamily: 'Inter-Regular',
     opacity: 0.6,
     marginBottom: 20,
   },
@@ -495,7 +503,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#E0E0E0",
     width: "100%",
-    marginBottom: 15,
+    marginBottom: 5,
   },
 
   sliderRow: {
@@ -504,7 +512,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     marginLeft: -25,
     paddingLeft: 40,
-    marginTop: 20
+    marginTop: 10
 
   },
 
@@ -522,7 +530,7 @@ const styles = StyleSheet.create({
 
   trackContainer: {
     marginHorizontal: 15, // Align with slider thumb travel
-    height: 8,
+    height: 9,
     backgroundColor: '#D3D3D3',
     borderRadius: 4,
     overflow: 'hidden',
@@ -530,7 +538,7 @@ const styles = StyleSheet.create({
 
   customTrackActive: {
     height: '100%',
-    backgroundColor: '#A067FF',
+    backgroundColor: '#A637FF',
   },
 
   slider: {
@@ -572,21 +580,21 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 44,
     alignSelf: "center",
-    backgroundColor: "#A067FF",
+    backgroundColor: "#A637FF",
     paddingVertical: 10,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
-    width: 140,
+    width: 157,
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 15, // Extra padding for bottom safe area if needed
+    paddingBottom: 15,
   },
 
   moreText: {
     textAlign: "center",
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 2,
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    // marginTop: 2,
   },
 });

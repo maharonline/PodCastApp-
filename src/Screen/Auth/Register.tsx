@@ -6,6 +6,7 @@ import { supabase } from "../../supabase";
 import { useAppDispatch } from "../../redux/hooks";
 import { setLoggedIn } from "../../redux/authSlice";
 import { GOOGLE_WEB_CLIENT_ID } from '@env';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 
@@ -128,76 +129,78 @@ export default function Register({ navigation }: Props) {
   };
 
   return (
-    <ScrollView>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+      <ScrollView>
 
-      <View style={styles.container}>
-        {/*===== LOGO =====*/}
-        <Image
-          source={require("../../assets/logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.container}>
+          {/*===== LOGO =====*/}
+          <Image
+            source={require("../../assets/logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
 
-        {/*===== HEADPHONE IMAGE ======*/}
-        <Image
-          source={require("../../assets/headphone.png")}
-          style={styles.headphone}
-          resizeMode="contain"
-        />
+          {/*===== HEADPHONE IMAGE ======*/}
+          <Image
+            source={require("../../assets/headphone.png")}
+            style={styles.headphone}
+            resizeMode="contain"
+          />
 
-        {/*===== BOTTOM BOX ======*/}
-        <View style={styles.card}>
-          {/*===== Email Sign Up =====*/}
-          <TouchableOpacity style={styles.emailBtn} onPress={handleRegister}>
-            {/* <FontAwesome6 name="envelope" size={22} color="#000" /> */}
-            <Image
-              source={require("../../assets/message.png")}
-              style={{ width: 24, height: 24 }}
+          {/*===== BOTTOM BOX ======*/}
+          <View style={styles.card}>
+            {/*===== Email Sign Up =====*/}
+            <TouchableOpacity style={styles.emailBtn} onPress={handleRegister}>
+              {/* <FontAwesome6 name="envelope" size={22} color="#000" /> */}
+              <Image
+                source={require("../../assets/message.png")}
+                style={{ width: 24, height: 24 }}
 
-            />
-            <Text style={styles.emailText}>Sign up with email</Text>
+              />
+              <Text style={styles.emailText}>Sign up with email</Text>
 
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          <View style={styles.dividerContainer}>
-            <View style={styles.line} />
-            <Text style={styles.orText}> or continue with</Text>
-            <View style={styles.line} />
+            <View style={styles.dividerContainer}>
+              <View style={styles.line} />
+              <Text style={styles.orText}> or continue with</Text>
+              <View style={styles.line} />
+            </View>
+
+            {/*===== Google Signup ===== */}
+
+            <TouchableOpacity style={styles.socialBtn} onPress={handleGoogleSignIn}>
+              {/* <FontAwesome6 name="google" size={22} color="#4285F4" /> */}
+              <Image
+                source={require("../../assets/google.png")}
+                style={{ width: 24, height: 24 }}
+
+              />
+              <Text style={styles.socialText}>Sign up with Google</Text>
+            </TouchableOpacity>
+
+            {/*===== Apple Signup ======*/}
+            <TouchableOpacity style={styles.socialBtn} onPress={handleAppleSignIn}>
+              {/* <FontAwesome6 name="apple" size={22} color="#000" /> */}
+              <Image
+                source={require("../../assets/apple.png")}
+                style={{ width: 24, height: 24 }}
+
+              />
+              <Text style={styles.socialText}>Sign up with Apple</Text>
+            </TouchableOpacity>
+
+            {/*==== Navigation to Login Page =====*/}
+            <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+              <Text style={styles.loginText}>
+                Already have an account?{" "}
+                <Text style={styles.loginLink}>Login</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          {/*===== Google Signup ===== */}
-
-          <TouchableOpacity style={styles.socialBtn} onPress={handleGoogleSignIn}>
-            {/* <FontAwesome6 name="google" size={22} color="#4285F4" /> */}
-            <Image
-              source={require("../../assets/google.png")}
-              style={{ width: 24, height: 24 }}
-
-            />
-            <Text style={styles.socialText}>Sign up with Google</Text>
-          </TouchableOpacity>
-
-          {/*===== Apple Signup ======*/}
-          <TouchableOpacity style={styles.socialBtn} onPress={handleAppleSignIn}>
-            {/* <FontAwesome6 name="apple" size={22} color="#000" /> */}
-            <Image
-              source={require("../../assets/apple.png")}
-              style={{ width: 24, height: 24 }}
-
-            />
-            <Text style={styles.socialText}>Sign up with Apple</Text>
-          </TouchableOpacity>
-
-          {/*==== Navigation to Login Page =====*/}
-          <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-            <Text style={styles.loginText}>
-              Already have an account?{" "}
-              <Text style={styles.loginLink}>Login</Text>
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 175,
     height: 60,
-    marginTop: 50,
+    marginTop: 30,
   },
 
   headphone: {

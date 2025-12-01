@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     title: {
         flex: 1,
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'Inter-SemiBold',
         color: '#fff',
         marginRight: 12,
     },

@@ -1,11 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, TextInput, ActivityIndicator, Alert, Dimensions, ScrollView } from "react-native";
-import { Circle, Svg } from "react-native-svg";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
-import { XMLParser } from "fast-xml-parser";
 import { DownloadService } from "../../services/DownloadService";
 import { DatabaseService } from "../../services/database";
 import { SUPABASE_ANON_KEY } from "@env";
@@ -21,32 +19,32 @@ interface Episode {
   image: string;
 }
 
-// const podcasts = [
-//   {
-//     id: 1,
-//     title: 'Mind of an Entrepreneur',
-//     category: 'Business',
-//     image: require('../../assets/search1.png'),
-//   },
-//   {
-//     id: 2,
-//     title: 'Unravelling the Mind',
-//     category: 'Healthy Lifestyle',
-//     image: require('../../assets/search2.png'),
-//   },
-//   {
-//     id: 3,
-//     title: 'A Tale of Writer',
-//     category: 'Educational',
-//     image: require('../../assets/search3.png'),
-//   },
-//   {
-//     id: 4,
-//     title: 'Addiction to Social!',
-//     category: 'Sociology',
-//     image: require('../../assets/search4.png'),
-//   },
-// ];
+const podcasts = [
+  {
+    id: 1,
+    title: 'Mind of an Entrepreneur',
+    category: 'Business',
+    image: require('../../assets/search1.png'),
+  },
+  {
+    id: 2,
+    title: 'Unravelling the Mind',
+    category: 'Healthy Lifestyle',
+    image: require('../../assets/search2.png'),
+  },
+  {
+    id: 3,
+    title: 'A Tale of Writer',
+    category: 'Educational',
+    image: require('../../assets/search3.png'),
+  },
+  {
+    id: 4,
+    title: 'Addiction to Social!',
+    category: 'Sociology',
+    image: require('../../assets/search4.png'),
+  },
+];
 
 export default function Search() {
   const dispatch = useAppDispatch();
@@ -220,10 +218,32 @@ export default function Search() {
     );
   }
 
+  const renderHeader = () => (
+    <>
+      {/* Only show category cards when NOT searching */}
+      {searchQuery.trim() === "" && (
+        <View style={styles.row}>
+          {podcasts.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.card}>
+              <Image source={item.image} style={styles.cardImage} />
+              <Text numberOfLines={2} style={styles.title}>{item.title}</Text>
+              <Text style={styles.category}>{item.category}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Results Count */}
+      {searchQuery.trim() !== "" && (
+        <Text style={styles.resultsText}>
+          {filteredEpisodes.length} result{filteredEpisodes.length !== 1 ? 's' : ''} found
+        </Text>
+      )}
+    </>
+  );
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
-
-
       <View style={styles.container}>
         {/* Search Bar */}
         <View style={styles.inputBox}>
@@ -245,30 +265,13 @@ export default function Search() {
           )}
         </View>
 
-        {/* <View style={styles.row}>
-            {podcasts.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.card}>
-                <Image source={item.image} style={styles.cardImage} />
-                <Text numberOfLines={2} style={styles.title}>{item.title}</Text>
-                <Text style={styles.category}>{item.category}</Text>
-              </TouchableOpacity>
-            ))}
-          </View> */}
-
-        {/* Results Count */}
-        {searchQuery.trim() !== "" && (
-          <Text style={styles.resultsText}>
-            {filteredEpisodes.length} result{filteredEpisodes.length !== 1 ? 's' : ''} found
-          </Text>
-        )}
-
-        {/* Episode List */}
         <FlatList
           data={filteredEpisodes}
           keyExtractor={(item, idx) => item.audioUrl || String(idx)}
           renderItem={renderEpisode}
           contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={renderHeader}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={64} color="#ccc" />
@@ -278,7 +281,6 @@ export default function Search() {
           )}
         />
       </View>
-
     </SafeAreaView>
   );
 }
@@ -299,13 +301,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 10,
   },
-  input: { flex: 1, fontSize: 15, color: "#1F1F1F" },
+  input: { flex: 1, fontSize: 15, color: "#1F1F1F", fontFamily: 'PublicSans-Medium' },
 
   resultsText: {
     fontSize: 14,
     color: "#666",
     marginBottom: 10,
-    fontWeight: "600",
+    fontFamily: 'PublicSans-SemiBold',
   },
 
   /* Podcast List */
@@ -379,25 +381,27 @@ const styles = StyleSheet.create({
 
   card: {
     width: cardWidth,
-    backgroundColor: "#fff",   // <-- ADD THIS
+    marginTop: 20,
     borderRadius: 12,
-    marginBottom: 20,
     paddingBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,       // Thoda kam shadow taake soft lage
-    shadowRadius: 6,
-    elevation: 6,
+    // backgroundColor: "",
+    // marginBottom: 20,
+    // shadowColor: '#000',
+    // shadowOpacity: 0.15,       
+    // shadowRadius: 6,
+    // elevation: 6,
   },
   cardImage: {
     width: '100%',
-    height: 125,                     // 150 → 125 for better balance
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    height: 125,
+    borderRadius: 12,
+    // borderTopLeftRadius: 12,
+    // borderTopRightRadius: 12,
   },
 
   title: {
     fontSize: 15,
-    fontWeight: 'bold',
+    fontFamily: 'PublicSans-Bold',
     marginTop: 8,
     paddingHorizontal: 8,     // <-- ADD
   },
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'gray',
     marginTop: 3,
-    paddingHorizontal: 8,     // <-- ADD
+    paddingHorizontal: 8,
+    fontFamily: 'PublicSans-Regular',
   },
 });
-

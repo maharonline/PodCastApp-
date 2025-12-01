@@ -363,6 +363,9 @@ export default function EditProfile({ navigation }: Props) {
                                     <Text style={styles.statLabel}>Liked Podcasts</Text>
                                 </View>
 
+                                {/* Vertical Divider */}
+                                <View style={styles.statDivider} />
+
                                 <View style={styles.statBox}>
                                     <Text style={styles.statNumber}>{stats.followingCount}</Text>
                                     <Text style={styles.statLabel}>Following</Text>
@@ -480,7 +483,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: "700",
+        fontFamily: 'Manrope-Bold',
         textAlign: "center",
         marginTop: 30,
         flex: 1,
@@ -491,26 +494,22 @@ const styles = StyleSheet.create({
         position: "absolute",
         zIndex: 10,
         elevation: 10,
-        backgroundColor: "#fff",
-        width: 130,
-        height: 130,
-        borderRadius: 65,
+        backgroundColor: "#fff", // White background for border effect
+        width: 150,
+        height: 150,
+        borderRadius: 75,
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#000",
         shadowOpacity: 0.2,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
-        // overflow: "hidden",s
-
-
-
     },
 
     avatar: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
+        width: 140, // Smaller than wrapper to show white border
+        height: 140,
+        borderRadius: 70,
 
 
     },
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 0,
         right: 0,
-        backgroundColor: "#A637FF",
+        backgroundColor: "#4800E0",
         width: 36,
         height: 36,
         borderRadius: 18,
@@ -530,7 +529,7 @@ const styles = StyleSheet.create({
     },
 
     profileCard: {
-        backgroundColor: "#A637FF",
+        backgroundColor: "#4800E0", // Deep purple matching the screenshot
         paddingTop: 70,
         paddingBottom: 20,
         paddingHorizontal: 20,
@@ -540,13 +539,14 @@ const styles = StyleSheet.create({
         height: 224,
         marginTop: 60,
         overflow: "hidden",
+
     },
 
     name: {
         color: "#fff",
         fontSize: 20,
-        fontWeight: "700",
-        marginTop: 10,
+        fontFamily: 'PublicSans-Bold',
+        marginTop: 30,
     },
 
     statsRow: {
@@ -558,13 +558,21 @@ const styles = StyleSheet.create({
 
     statBox: { alignItems: "center" },
 
+    statDivider: {
+        width: 1,
+        height: 40,
+        // backgroundColor: "rgba(255,255,255,0.3)",
+        backgroundColor: "#fff",
+    },
+
     statNumber: {
         color: "#fff",
-        fontSize: 18,
-        fontWeight: "700",
+        fontSize: 19,
+        fontFamily: 'PublicSans-Bold',
     },
 
     statLabel: {
+        fontFamily: 'PublicSans-Regular',
         color: "#ddd",
         fontSize: 12,
     },
@@ -573,6 +581,7 @@ const styles = StyleSheet.create({
         marginTop: 25,
         fontSize: 14,
         color: "#8D5CF6",
+        fontFamily: 'Manrope-SemiBold',
     },
 
     input: {
@@ -582,18 +591,20 @@ const styles = StyleSheet.create({
         padding: 12,
         marginTop: 8,
         fontSize: 16,
+        fontFamily: 'Manrope-Regular',
     },
 
     sectionTitle: {
         marginTop: 20,
         fontSize: 17,
-        fontWeight: "700",
+        fontFamily: 'PublicSans-Bold',
     },
 
     recentPlayRow: {
         flexDirection: "row",
         alignItems: "center",
         marginTop: 15,
+        // fontFamily: 'PublicSans-Bold',
     },
 
     recentPlayNumber: {
