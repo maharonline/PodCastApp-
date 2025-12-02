@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, TextInput, ActivityIndicator, Alert, Dimensions, ScrollView } from "react-native";
+import { View, Text, Image, RefreshControl, TouchableOpacity, FlatList, StyleSheet, TextInput, ActivityIndicator, Alert, Dimensions, ScrollView } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
@@ -58,6 +58,7 @@ export default function Search() {
   const [downloadingEpisodes, setDownloadingEpisodes] = useState<Set<string>>(new Set());
   const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
   const [downloadedEpisodes, setDownloadedEpisodes] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   const SUPABASE_RSS_URL = "https://bfchuybsseczmjmmosda.supabase.co/functions/v1/rss"
 
@@ -85,7 +86,7 @@ export default function Search() {
       const downloadedIds = new Set(downloaded.map((d: any) => d.episode_id));
       setDownloadedEpisodes(downloadedIds);
     } catch (e) {
-      console.log('Error loading downloaded episodes:', e);
+      // Error loading downloaded episodes
     }
   };
 
@@ -101,13 +102,11 @@ export default function Search() {
       });
 
       const json = await response.json();
-      console.log("RSS JSON:", json);
 
       const formatted: Episode[] = json.episodes || [];
       setEpisodes(formatted);
       setLoading(false);
     } catch (err) {
-      console.log("RSS ERROR:", err);
       setEpisodes([]);
       setLoading(false);
     }
@@ -153,7 +152,6 @@ export default function Search() {
         episode.title,
         (progress) => {
           const percent = progress.progress;
-          console.log(`Download progress: ${(percent * 100).toFixed(0)}%`);
           setDownloadProgress(prev => new Map(prev).set(episodeId, percent));
         }
       );
@@ -178,7 +176,6 @@ export default function Search() {
       // Mark as downloaded
       setDownloadedEpisodes(prev => new Set(prev).add(safeEpisodeId));
     } catch (error: any) {
-      console.error("Download error:", error);
       Alert.alert("Download Failed", error.message || "Failed to download episode");
     } finally {
       setDownloadingEpisodes(prev => {
@@ -209,6 +206,15 @@ export default function Search() {
       />
     );
   }, [handlePlay, handleDownload, downloadingEpisodes, downloadProgress, downloadedEpisodes]);
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchEpisodes(),
+      loadDownloadedEpisodes()
+    ]);
+    setRefreshing(false);
+  }, [user]);
 
   if (loading) {
     return (
@@ -272,6 +278,14 @@ export default function Search() {
           contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#A637FF']}
+              tintColor="#A637FF"
+            />
+          }
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={64} color="#ccc" />

@@ -95,7 +95,6 @@ export default function AllEpisodes({ navigation, route }: Props) {
             setDownloadedEpisodes(prev => new Set(prev).add(safeEpisodeId));
 
         } catch (error: any) {
-            console.error("Download error:", error);
             Alert.alert("Download Failed", error.message || "Failed to download episode");
         } finally {
             setDownloadingEpisodes(prev => {

@@ -157,7 +157,7 @@ This project is for educational purposes.
 
 ## 👤 Author
 
-**Ahmad Mahar**
+**Hamza Ahmad Mahar**
 - GitHub: [@maharonline](https://github.com/maharonline)
 - Organization: [BootCampWise](https://github.com/bootcampwise)
 

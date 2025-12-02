@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Allow Supabase Edge Functions -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">supabase.co</domain>
+  </domain-config>
+
+  <!-- Allow BBC Podcast Audio Files -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">podcasts.files.bbci.co.uk</domain>
+    <domain includeSubdomains="true">open.live.bbc.co.uk</domain>
+  </domain-config>
+
+  <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

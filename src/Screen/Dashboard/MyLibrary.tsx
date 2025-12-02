@@ -43,7 +43,6 @@ export default function MyLibrary() {
 
             if (activeTab === "downloads") {
                 // Fetch downloads with offline support
-                console.log(`MyLibrary: Fetching downloads for user:`, user.id);
 
                 // OPTIMIZED: Batch fetch all episodes at once
                 const episodeIds = downloads.map((d: any) => d.episode_id);
@@ -60,7 +59,7 @@ export default function MyLibrary() {
                             episodes.forEach((ep: any) => episodesMap.set(ep.id, ep));
                         }
                     } catch (error) {
-                        console.warn('Supabase batch query failed, using cached metadata');
+                        // Supabase batch query failed, using cached metadata
                     }
                 }
 
@@ -89,13 +88,10 @@ export default function MyLibrary() {
                 setDownloadedItems(episodesWithDetails);
             } else {
                 // Fetch liked items
-                console.log(`MyLibrary: Fetching liked items for user:`, user.id);
                 const data = await DatabaseService.getLibrary(user.id, "liked");
-                console.log(`MyLibrary: Got ${data?.length || 0} liked items`);
                 setLibraryItems(data || []);
             }
         } catch (error) {
-            console.error("Error fetching library:", error);
             setLibraryItems([]);
             setDownloadedItems([]);
         } finally {
@@ -136,7 +132,6 @@ export default function MyLibrary() {
                 image: episode.image_url || episode.image,
                 id: safeEpisodeId
             };
-            console.log("episodeData", episode.image_url);
 
             await DatabaseService.upsertEpisode(episodeData);
 
@@ -178,7 +173,6 @@ export default function MyLibrary() {
             }
 
         } catch (error: any) {
-            console.error("Download error:", error);
             Alert.alert("Download Failed", error.message || "Failed to download episode");
         } finally {
             setDownloadingEpisodes(prev => {

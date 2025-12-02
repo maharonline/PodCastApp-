@@ -21,7 +21,10 @@ export default function PodcastCard({
     downloadProgress,
     isDownloaded,
 }: PodcastCardProps) {
-    const imageUrl = item.image || item.image_url || item.episode?.image_url || "https://via.placeholder.com/100";
+    const imageUrl = item.image || item.image_url || item.episode?.image_url;
+    const imageSource = imageUrl
+        ? { uri: imageUrl }
+        : require("../assets/headphone.png"); // Fallback to local image
 
     // Share Function
     const handleShare = async () => {
@@ -30,13 +33,13 @@ export default function PodcastCard({
                 message: `Check out this podcast: ${item.title || item.episode?.title}\nListen here: ${item.audioUrl || item.episode?.audio_url}`,
             });
         } catch (error) {
-            console.log("Share error:", error);
+            // Share error
         }
     };
 
     return (
         <View style={styles.podcastItem}>
-            <Image source={{ uri: imageUrl }} style={styles.podcastImage} />
+            <Image source={imageSource} style={styles.podcastImage} />
 
             <View style={styles.podcastContent}>
                 <Text style={styles.podcastTitle} numberOfLines={2}>

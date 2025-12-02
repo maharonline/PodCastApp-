@@ -54,7 +54,7 @@ export const DatabaseService = {
             });
 
         if (error && !error.message.includes('duplicate key')) {
-            console.error('Error creating profile:', error);
+            // Error creating profile
         }
     },
 
@@ -83,7 +83,6 @@ export const DatabaseService = {
 
     async uploadAvatar(userId: string, imageUri: string, imageName: string) {
         try {
-            console.log('DatabaseService.uploadAvatar: Starting upload', { userId, imageUri, imageName });
 
             // For React Native, we need to read the file properly using RNFS
             // Remove 'file://' prefix if present
@@ -92,16 +91,11 @@ export const DatabaseService = {
                 filePath = filePath.replace('file://', '');
             }
 
-            console.log('DatabaseService.uploadAvatar: Reading file from:', filePath);
-
             // Read the file as base64
             const base64Data = await RNFS.readFile(filePath, 'base64');
-            console.log('DatabaseService.uploadAvatar: File read successfully, base64 length:', base64Data.length);
 
             // Convert base64 to binary using Buffer (available in React Native via polyfill)
             const buffer = Buffer.from(base64Data, 'base64');
-
-            console.log('DatabaseService.uploadAvatar: Converted to binary, size:', buffer.length);
 
             // Upload to Supabase Storage
             const storagePath = `${userId}/${imageName}`;
@@ -113,10 +107,7 @@ export const DatabaseService = {
                     contentType: 'image/jpeg'
                 });
 
-            console.log('DatabaseService.uploadAvatar: Upload response:', { uploadData, uploadError, storagePath });
-
             if (uploadError) {
-                console.error('DatabaseService.uploadAvatar: Upload error:', uploadError);
                 throw uploadError;
             }
 
@@ -126,7 +117,6 @@ export const DatabaseService = {
                 .getPublicUrl(storagePath);
 
             const avatarUrl = urlData.publicUrl;
-            console.log('DatabaseService.uploadAvatar: Public URL:', avatarUrl);
 
             // Verify the file exists by attempting to download it
             try {
@@ -135,21 +125,19 @@ export const DatabaseService = {
                     .download(storagePath);
 
                 if (downloadError) {
-                    console.warn('DatabaseService.uploadAvatar: Verification download failed', downloadError);
+                    // Verification download failed
                 } else {
-                    console.log('DatabaseService.uploadAvatar: Verification successful, file size:', downloaded?.size || '(unknown)');
+                    // Verification successful
                 }
             } catch (verErr) {
-                console.warn('DatabaseService.uploadAvatar: Verification threw error', verErr);
+                // Verification threw error
             }
 
             // Update profile with new avatar URL
             await this.updateUserProfile(userId, { avatar_url: avatarUrl } as any);
-            console.log('DatabaseService.uploadAvatar: Profile updated with new avatar URL');
 
             return avatarUrl;
         } catch (error) {
-            console.error("DatabaseService.uploadAvatar: Error:", error);
             throw error;
         }
     },
@@ -168,16 +156,16 @@ export const DatabaseService = {
                 duration: episode.duration || '',
             }, { onConflict: 'id' });
 
-        if (error) console.error('Error upserting episode:', error);
+        // Silently handle errors
     },
 
     // --- Library ---
     async addToLibrary(userId: string, episode: any, status: 'queue' | 'liked' | 'history' | 'downloaded') {
         try {
             // 0. Ensure user profile exists (non-blocking)
-            this.ensureUserProfile(userId).catch(err =>
-                console.warn('Error ensuring user profile:', err)
-            );
+            this.ensureUserProfile(userId).catch(() => {
+                // Error ensuring user profile
+            });
 
             // 1. Ensure episode exists in episodes table
             await this.upsertEpisode(episode);
@@ -193,10 +181,10 @@ export const DatabaseService = {
                 }, { onConflict: 'user_id, episode_id, status' });
 
             if (error) {
-                console.error('Error adding to library:', error);
+                // Error adding to library
             }
         } catch (err) {
-            console.error('Unexpected error in addToLibrary:', err);
+            // Unexpected error in addToLibrary
         }
     },
 
@@ -227,28 +215,22 @@ export const DatabaseService = {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.error(`Database: getLibrary-${status} error:`, error);
                 return [];
             }
 
-            console.log(`Database: getLibrary-${status} took ${Date.now() - start}ms. Rows: ${data?.length}`);
             return data as LibraryItem[];
         } catch (err) {
-            console.error(`Database: getLibrary-${status} exception:`, err);
             return [];
         }
     },
 
     async getLibraryStats(userId: string) {
-        console.log(`Database: getLibraryStats starting...`);
         const start = Date.now();
         const { count: likedCount, error: likedError } = await supabase
             .from('user_library')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId)
             .eq('status', 'liked');
-
-        console.log(`Database: getLibraryStats took ${Date.now() - start}ms`);
 
         // Mocking "following" for now as we don't have a following table yet
         const followingCount = 0;

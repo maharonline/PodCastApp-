@@ -49,7 +49,6 @@ export default function Register({ navigation }: Props) {
       });
 
       if (error) {
-        console.log("Supabase login error:", error);
         Alert.alert("Error", error.message);
         return;
       }
@@ -84,7 +83,6 @@ export default function Register({ navigation }: Props) {
 
       Alert.alert("Success", `Welcome ${data.session?.user?.email}`);
     } catch (error: any) {
-      console.log("Google Sign-In error:", error);
       Alert.alert("Error", error.message);
     }
   };
@@ -100,8 +98,6 @@ export default function Register({ navigation }: Props) {
           appleAuth.Scope.FULL_NAME
         ],
       });
-
-      console.log("Apple Response:", response);
 
       const { user, email, fullName, identityToken } = response;
 
@@ -123,7 +119,6 @@ export default function Register({ navigation }: Props) {
 
       Alert.alert("Success", "Apple Sign-In Successful!");
     } catch (error) {
-      console.log("Apple Error:", error);
       Alert.alert("Error", "Apple Sign-in cancelled or failed.");
     }
   };

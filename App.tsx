@@ -74,6 +74,10 @@ export default function App() {
 
               // Auto-cleanup old notifications (7+ days)
               await NotificationDatabaseService.clearOldNotifications(user.id);
+
+              // Fix any existing files with double extensions (migration)
+              const { DownloadService } = await import('./src/services/DownloadService');
+              await DownloadService.fixDoubleExtensions(user.id);
             } catch (e) {
               console.error("App.tsx: Background profile fetch error:", e);
             }

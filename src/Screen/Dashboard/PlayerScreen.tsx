@@ -28,12 +28,45 @@ export default function PlayerScreen({ navigation, route }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false); // Will be updated by event listener
   const [isLiked, setIsLiked] = useState(false);
+  const [enrichedEpisode, setEnrichedEpisode] = useState<any>(null); // For cached metadata
 
   // Use TrackPlayer's built-in progress hook
   const { position, duration } = useProgress();
 
+  const current = enrichedEpisode || episodes[currentIndex] || {};
+
+  // Load cached metadata for current episode (for offline playback)
+  useEffect(() => {
+    const loadCachedMetadata = async () => {
+      const baseEpisode = episodes[currentIndex];
+      if (!baseEpisode) {
+        setEnrichedEpisode(null);
+        return;
+      }
+
+      const safeEpisodeId = baseEpisode.audioUrl?.split('/').pop()?.split('?')[0];
+      if (safeEpisodeId) {
+        try {
+          const cachedMetadata = await DownloadService.getEpisodeMetadata(safeEpisodeId);
+          if (cachedMetadata) {
+            console.log(`💾 Enriching current episode with cached metadata`);
+            setEnrichedEpisode({ ...baseEpisode, ...cachedMetadata });
+            return;
+          }
+        } catch (e) {
+          console.warn('Failed to load cached metadata for current episode:', e);
+        }
+      }
+
+      // If no cached data, use base episode
+      setEnrichedEpisode(baseEpisode);
+    };
+
+    loadCachedMetadata();
+  }, [currentIndex, episodes]);
+
   // Listen to playback state changes to sync UI with actual player state
-  useTrackPlayerEvents([Event.PlaybackState], async (event) => {
+  useTrackPlayerEvents([Event.PlaybackState, Event.PlaybackError], async (event) => {
     if (event.type === Event.PlaybackState) {
       const state = event.state;
       console.log('📻 Playback state changed:', state);
@@ -42,10 +75,28 @@ export default function PlayerScreen({ navigation, route }: Props) {
       setIsBuffering(state === State.Buffering);
       // Update Redux state
       dispatch(setPlaybackState(playing));
+
+      // If error state, log current track details
+      if (state === State.Error) {
+        const activeTrack = await TrackPlayer.getActiveTrack();
+        console.error('❌ PLAYBACK ERROR - Track details:', {
+          url: activeTrack?.url,
+          title: activeTrack?.title,
+          artwork: activeTrack?.artwork,
+        });
+        Alert.alert(
+          'Playback Error',
+          `Unable to play this episode. Please check your internet connection or try a different episode.\n\nURL: ${activeTrack?.url?.substring(0, 50)}...`
+        );
+      }
+    }
+
+    if (event.type === Event.PlaybackError) {
+      console.error('❌ PLAYBACK ERROR EVENT:', event);
+      const activeTrack = await TrackPlayer.getActiveTrack();
+      console.error('❌ Failed track URL:', activeTrack?.url);
     }
   });
-
-  const current = episodes[currentIndex] || {};
 
   // Check if current episode is liked
   useEffect(() => {
@@ -164,25 +215,44 @@ export default function PlayerScreen({ navigation, route }: Props) {
           }
         }
 
-        const tracks = episodes.map((ep, i) => {
+        const tracks = await Promise.all(episodes.map(async (ep, i) => {
           let audioSource = ep.audioUrl;
+          let episodeData = ep; // Start with provided episode data
 
           const safeEpisodeId = ep.audioUrl?.split('/').pop()?.split('?')[0];
           if (safeEpisodeId && downloadedMap.has(safeEpisodeId)) {
             audioSource = downloadedMap.get(safeEpisodeId);
+            console.log(`📥 Using downloaded file for ${ep.title}: ${audioSource}`);
+
+            // Load cached metadata for offline playback
+            try {
+              const cachedMetadata = await DownloadService.getEpisodeMetadata(safeEpisodeId);
+              if (cachedMetadata) {
+                console.log(`💾 Loaded cached metadata for ${safeEpisodeId}`);
+                episodeData = { ...ep, ...cachedMetadata }; // Merge cached data
+              }
+            } catch (e) {
+              console.warn('Failed to load cached metadata:', e);
+            }
+          } else {
+            console.log(`🌐 Using online URL for ${ep.title}: ${audioSource}`);
           }
 
           return {
             id: i,
             url: audioSource,
-            title: ep.title,
-            artist: ep.pubDate || "Unknown",
-            artwork: ep.image,
+            title: episodeData.title || 'Unknown',
+            artist: episodeData.pubDate || "Unknown",
+            artwork: episodeData.image || episodeData.artwork,
           };
-        });
+        }));
 
         // STEP 3 — ADD TRACKS ONLY IF DIFFERENT FROM CURRENT PLAYBACK
         console.log("🎧 Adding playlist fresh...");
+        console.log("🎵 Total tracks to add:", tracks.length);
+        console.log("🎵 First track URL:", tracks[0]?.url);
+        console.log("🎵 First track title:", tracks[0]?.title);
+
         await TP.reset();
         await TP.add(tracks);
 

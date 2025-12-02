@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert, ScrollView } from "react-native";
-import { Circle, Svg } from "react-native-svg";
+import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert, ScrollView, RefreshControl } from "react-native"; import { Circle, Svg } from "react-native-svg";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
@@ -31,6 +30,8 @@ export default function Home() {
   const [downloadingEpisodes, setDownloadingEpisodes] = useState<Set<string>>(new Set());
   const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
   const [downloadedEpisodes, setDownloadedEpisodes] = useState<Set<string>>(new Set());
+  const [enrichedEpisodes, setEnrichedEpisodes] = useState<Episode[]>([]); // For cached metadata
+  const [refreshing, setRefreshing] = useState(false);
 
 
   const SUPABASE_RSS_URL = "https://bfchuybsseczmjmmosda.supabase.co/functions/v1/rss";
@@ -42,10 +43,42 @@ export default function Home() {
     require("../../assets/trending2.jpg"),
 
   ];
+
   useEffect(() => {
     fetchEpisodes();
     loadDownloadedEpisodes();
   }, []);
+
+  // Enrich episodes with cached metadata for offline display
+  useEffect(() => {
+    const enrichEpisodesWithCache = async () => {
+      if (episodes.length === 0) {
+        setEnrichedEpisodes([]);
+        return;
+      }
+
+      const enriched = await Promise.all(
+        episodes.map(async (ep) => {
+          const safeEpisodeId = ep.audioUrl?.split('/').pop()?.split('?')[0];
+          if (safeEpisodeId && downloadedEpisodes.has(safeEpisodeId)) {
+            try {
+              const cachedMetadata = await DownloadService.getEpisodeMetadata(safeEpisodeId);
+              if (cachedMetadata) {
+                return { ...ep, ...cachedMetadata };
+              }
+            } catch (e) {
+              // Failed to load cached metadata
+            }
+          }
+          return ep;
+        })
+      );
+
+      setEnrichedEpisodes(enriched);
+    };
+
+    enrichEpisodesWithCache();
+  }, [episodes, downloadedEpisodes]);
 
   const loadDownloadedEpisodes = async () => {
     if (!user?.id) return;
@@ -54,7 +87,7 @@ export default function Home() {
       const downloadedIds = new Set(downloaded.map((d: any) => d.episode_id));
       setDownloadedEpisodes(downloadedIds);
     } catch (e) {
-      console.log('Error loading downloaded episodes:', e);
+      // Error loading downloaded episodes
     }
   };
 
@@ -70,13 +103,11 @@ export default function Home() {
       });
 
       const json = await response.json();
-      console.log("RSS JSON:", json);
 
       const formatted: Episode[] = json.episodes || [];
       setEpisodes(formatted);
       setLoading(false);
     } catch (err) {
-      console.log("RSS ERROR:", err);
       setEpisodes([]);
       setLoading(false);
     }
@@ -122,7 +153,6 @@ export default function Home() {
         episode.title,
         (progress) => {
           const percent = progress.progress;
-          console.log(`Download progress: ${(percent * 100).toFixed(0)}%`);
           setDownloadProgress(prev => new Map(prev).set(episodeId, percent));
         }
       );
@@ -145,9 +175,8 @@ export default function Home() {
       Alert.alert("Success", "Episode downloaded successfully!");
 
       // Mark as downloaded
-      setDownloadedEpisodes(prev => new Set(prev).add(episodeId));
+      setDownloadedEpisodes(prev => new Set(prev).add(safeEpisodeId));
     } catch (error: any) {
-      console.error("Download error:", error);
       Alert.alert("Download Failed", error.message || "Failed to download episode");
     } finally {
       setDownloadingEpisodes(prev => {
@@ -183,6 +212,15 @@ export default function Home() {
     index,
   }), []);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchEpisodes(),
+      loadDownloadedEpisodes()
+    ]);
+    setRefreshing(false);
+  }, [user]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -194,7 +232,7 @@ export default function Home() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
       <FlatList
-        data={episodes.slice(0, 5)}
+        data={enrichedEpisodes.length > 0 ? enrichedEpisodes.slice(0, 5) : episodes.slice(0, 5)}
         keyExtractor={(item, idx) => item.audioUrl || String(idx)}
         renderItem={renderEpisode}
         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
@@ -205,6 +243,14 @@ export default function Home() {
         updateCellsBatchingPeriod={50}
         initialNumToRender={10}
         windowSize={5}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#A637FF']}
+            tintColor="#A637FF"
+          />
+        }
         ListHeaderComponent={() => (
           <>
             <View style={styles.header}>
@@ -412,28 +458,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginRight: 15
   },
-
-  /* Banner Horizontal Scroll */
-  // bannerHorizontalItem: {
-  //   width: 200,
-  //   marginRight: 15,
-  //   borderRadius: 16,
-  //   overflow: "hidden",
-  //   backgroundColor: "#000",
-  // },
-  // bannerImageHorizontal: {
-  //   width: "100%",
-  //   height: 120,
-  // },
-  // bannerTextHorizontal: {
-  //   position: "absolute",
-  //   bottom: 0,
-  //   left: 10,
-  //   right: 10,
-  //   padding: 8,
-  // },
-  // bannerTitleHorizontal: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  // bannerSubtitleHorizontal: { color: "#fff", fontSize: 12 },
 
 });
 

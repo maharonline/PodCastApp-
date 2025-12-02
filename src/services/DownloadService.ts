@@ -37,10 +37,9 @@ export const DownloadService = {
             const exists = await RNFS.exists(dir);
             if (!exists) {
                 await RNFS.mkdir(dir);
-                console.log('Download directory created:', dir);
             }
         } catch (error) {
-            console.error('Error creating download directory:', error);
+            // Error creating download directory
         }
     },
 
@@ -55,16 +54,19 @@ export const DownloadService = {
     },
     /** Generate a safe filename from episode ID and optional audio URL */
     getSafeFilename(episodeId: string, audioUrl?: string): string {
+        // Remove any existing extension from episodeId first
+        const cleanEpisodeId = episodeId.replace(/\.(mp3|m4a|wav|aac)$/i, '');
+
         // Fallback to .mp3 if audioUrl is missing or malformed
         if (typeof audioUrl !== 'string' || !audioUrl) {
-            return `${episodeId}.mp3`;
+            return `${cleanEpisodeId}.mp3`;
         }
         const urlParts = audioUrl.split('.');
         const extension =
             urlParts.length > 1
                 ? `.${urlParts[urlParts.length - 1].split('?')[0]}`
                 : '.mp3';
-        return `${episodeId}${extension}`;
+        return `${cleanEpisodeId}${extension}`;
     },
 
     /** Full file path for a given filename */
@@ -78,7 +80,6 @@ export const DownloadService = {
             const download = await this.getDownloadedEpisode(userId, episodeId);
             return download !== null;
         } catch (error) {
-            console.error('Error checking if downloaded:', error);
             return false;
         }
     },
@@ -110,7 +111,6 @@ export const DownloadService = {
 
             return data as DownloadedEpisode;
         } catch (error) {
-            console.error('Error getting downloaded episode:', error);
             return null;
         }
     },
@@ -127,7 +127,7 @@ export const DownloadService = {
             if (error) throw error;
             return (data as DownloadedEpisode[]) || [];
         } catch (error) {
-            console.warn('Error fetching downloads from Supabase (offline?):', error);
+            // Error fetching downloads from Supabase (offline?)
 
             // Fallback: scan local file system when offline
             try {
@@ -153,10 +153,8 @@ export const DownloadService = {
                     }
                 }
 
-                console.log(`📂 Found ${downloads.length} offline downloads`);
                 return downloads;
             } catch (fsError) {
-                console.error('Error scanning local downloads:', fsError);
                 return [];
             }
         }
@@ -177,7 +175,6 @@ export const DownloadService = {
             );
             return totalSize;
         } catch (error) {
-            console.error('Error calculating cache size:', error);
             return 0;
         }
     },
@@ -196,13 +193,11 @@ export const DownloadService = {
 
             // Validate userId to prevent database errors if a URL is passed instead of an ID
             if (this.isUrl(userId)) {
-                console.error('Error: userId cannot be a URL. Received:', userId);
                 throw new Error('Invalid user ID provided. Expected an identifier, not a URL.');
             }
 
             // Validate episodeId to prevent database errors if a URL is passed instead of an ID
             if (this.isUrl(episodeId)) {
-                console.error('Error: episodeId cannot be a URL. Received:', episodeId);
                 throw new Error('Invalid episode ID provided. Expected an identifier, not a URL.');
             }
 
@@ -227,8 +222,6 @@ export const DownloadService = {
 
             const filename = this.getSafeFilename(episodeId, audioUrl);
             const filePath = this.getFilePath(filename);
-
-            console.log('Starting download:', audioUrl, '->', filePath);
 
             const downloadTask = RNFS.downloadFile({
                 fromUrl: audioUrl,
@@ -260,7 +253,6 @@ export const DownloadService = {
                     fileSize,
                 );
                 this.activeDownloads.delete(episodeId);
-                console.log('Download complete:', filePath, 'Size:', fileSize);
 
                 // Show toast notification for download completion
                 if (Platform.OS === 'android') {
@@ -278,7 +270,6 @@ export const DownloadService = {
             }
         } catch (error) {
             this.activeDownloads.delete(episodeId);
-            console.error('Download error:', error);
             throw error;
         }
     },
@@ -295,7 +286,7 @@ export const DownloadService = {
             try {
                 await RNFS.unlink(filePath);
             } catch (e) {
-                console.warn('Error deleting partial file:', e);
+                // Error deleting partial file
             }
         }
     },
@@ -309,12 +300,10 @@ export const DownloadService = {
             const exists = await RNFS.exists(download.local_path);
             if (exists) {
                 await RNFS.unlink(download.local_path);
-                console.log('File deleted:', download.local_path);
             }
 
             await this.removeDownloadFromDatabase(userId, episodeId);
         } catch (error) {
-            console.error('Error deleting download:', error);
             throw error;
         }
     },
@@ -328,7 +317,7 @@ export const DownloadService = {
                     const exists = await RNFS.exists(dl.local_path);
                     if (exists) await RNFS.unlink(dl.local_path);
                 } catch (e) {
-                    console.warn('Error deleting file:', dl.local_path, e);
+                    // Error deleting file
                 }
             }
             const { error } = await supabase
@@ -336,9 +325,7 @@ export const DownloadService = {
                 .delete()
                 .eq('user_id', userId);
             if (error) throw error;
-            console.log('All downloads cleared for user:', userId);
         } catch (error) {
-            console.error('Error clearing downloads:', error);
             throw error;
         }
     },
@@ -354,7 +341,6 @@ export const DownloadService = {
             const stat = await RNFS.stat(filePath);
             return parseInt(stat.size.toString(), 10);
         } catch (error) {
-            console.error('Error getting file size:', error);
             return 0;
         }
     },
@@ -388,7 +374,6 @@ export const DownloadService = {
                 { onConflict: 'user_id,episode_id' },
             );
         if (error) {
-            console.error('Error saving download to database:', error);
             throw error;
         }
     },
@@ -404,7 +389,6 @@ export const DownloadService = {
             .eq('user_id', userId)
             .eq('episode_id', episodeId);
         if (error) {
-            console.error('Error removing download from database:', error);
             throw error;
         }
     },
@@ -415,7 +399,7 @@ export const DownloadService = {
             const key = `episode_meta_${episodeId}`;
             await AsyncStorage.setItem(key, JSON.stringify(metadata));
         } catch (error) {
-            console.warn('Error caching episode metadata:', error);
+            // Error caching episode metadata
         }
     },
 
@@ -426,8 +410,45 @@ export const DownloadService = {
             const data = await AsyncStorage.getItem(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.warn('Error getting cached metadata:', error);
             return null;
+        }
+    },
+
+    /** Migration: Fix existing files with double extensions */
+    async fixDoubleExtensions(userId: string): Promise<void> {
+        try {
+            const dir = this.getDownloadDirectory();
+            const exists = await RNFS.exists(dir);
+            if (!exists) return;
+
+            const files = await RNFS.readDir(dir);
+            let fixedCount = 0;
+
+            for (const file of files) {
+                // Check if file has double extension like .mp3.mp3
+                if (file.name.match(/\.(mp3|m4a|wav|aac)\.(mp3|m4a|wav|aac)$/i)) {
+                    const newName = file.name.replace(/\.(mp3|m4a|wav|aac)\.(mp3|m4a|wav|aac)$/i, '.$2');
+                    const newPath = `${dir}/${newName}`;
+
+                    // Rename the file
+                    await RNFS.moveFile(file.path, newPath);
+
+                    // Update database record
+                    const episodeId = newName.replace(/\.(mp3|m4a|wav|aac)$/i, '');
+                    const { error } = await supabase
+                        .from('downloads')
+                        .update({ local_path: newPath })
+                        .eq('user_id', userId)
+                        .eq('episode_id', episodeId);
+
+                    if (error) {
+                        // Failed to update DB
+                    }
+
+                    fixedCount++;
+                }
+            }
+        } catch (error) {
         }
     },
 };
