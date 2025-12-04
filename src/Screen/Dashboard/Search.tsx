@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { View, Text, Image, RefreshControl, TouchableOpacity, FlatList, StyleSheet, TextInput, ActivityIndicator, Alert, Dimensions, ScrollView } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Feather from "react-native-vector-icons/Feather";
@@ -64,10 +64,12 @@ export default function Search() {
 
 
 
-  useEffect(() => {
-    fetchEpisodes();
-    loadDownloadedEpisodes();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchEpisodes();
+      loadDownloadedEpisodes();
+    }, [])
+  );
 
   // Filter episodes when search query changes
   useEffect(() => {

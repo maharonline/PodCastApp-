@@ -45,7 +45,7 @@ export default function Register({ navigation }: Props) {
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: res.data.idToken,
-        access_token: res.data.serverAuthCode || res.data.idToken, 
+        access_token: res.data.serverAuthCode || res.data.idToken,
       });
 
       if (error) {
@@ -194,7 +194,7 @@ export default function Register({ navigation }: Props) {
             <TouchableOpacity onPress={() => navigation.navigate("Login")}>
               <Text style={styles.loginText}>
                 Already have an account?{" "}
-                <Text style={styles.loginLink}>Login</Text>
+                <Text style={styles.loginLink}>Sign In</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -273,9 +273,9 @@ const styles = StyleSheet.create({
   },
 
   emailText: {
-    fontSize: 16,
+    fontSize: 15,
     marginLeft: 8,
-    fontWeight: "600",
+    fontFamily: 'Manrope-Medium'
   },
 
   dividerContainer: {
@@ -294,12 +294,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     opacity: 0.2,
     textAlign: "center",
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12
   },
 
   socialBtn: {
     flexDirection: "row",
     borderWidth: 1,
-    borderColor: "#8D5CF6",
+    borderColor: "#A637FF",
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
@@ -308,19 +310,20 @@ const styles = StyleSheet.create({
   },
 
   socialText: {
-    fontSize: 16,
+    fontSize: 15,
     marginLeft: 10,
-    fontWeight: "600",
+    fontFamily: 'Manrope-Medium'
   },
 
   loginText: {
     textAlign: "center",
     marginTop: 10,
     fontSize: 14,
+    fontFamily: 'Manrope-Medium'
   },
 
   loginLink: {
-    color: "#6C45FF",
+    color: "#A637FF",
     fontWeight: "700",
   },
 });

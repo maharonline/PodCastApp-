@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -51,10 +51,12 @@ export default function Home() {
     require("../../assets/trending2.jpg"),
   ];
 
-  useEffect(() => {
-    fetchEpisodes();
-    loadDownloadedEpisodes();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchEpisodes();
+      loadDownloadedEpisodes();
+    }, [])
+  );
 
   useEffect(() => {
     const enrichEpisodesWithCache = async () => {

@@ -15,6 +15,7 @@ import { RootState } from "../redux/store";
 import Login from "../Screen/Auth/Login";
 import Register from "../Screen/Auth/Register";
 import RegisterForm from "../Screen/Auth/RegisterForm";
+import ForgotPassword from "../Screen/Auth/ForgotPassword";
 
 //===== Tab Screens =======
 import Home from "../Screen/Dashboard/Home";
@@ -48,6 +49,7 @@ type StackParamList = {
   Login: undefined;
   Register: undefined;
   RegisterForm: undefined;
+  ForgotPassword: undefined;
 };
 
 const Stack = createNativeStackNavigator<StackParamList>();
@@ -142,6 +144,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Register" component={Register} />
             <Stack.Screen name="Login" component={Login} />
             <Stack.Screen name="RegisterForm" component={RegisterForm} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           </>
         )}
       </Stack.Navigator>

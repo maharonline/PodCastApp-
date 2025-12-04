@@ -75,13 +75,15 @@ export default function Login({ navigation }: Props) {
 
             {/*===== BOTTOM BOX =====*/}
             <View style={styles.card}>
+
+
               {/*======= Email INput ======== */}
               <View style={styles.inputBox}>
-                <FontAwesome6 name="envelope" size={20} color="#A637FF" style={{ marginRight: 10 }} />
+                <FontAwesome6 name="envelope" size={20} color="#000" style={{ marginRight: 10 }} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your Email"
-                  placeholderTextColor="#A637FF"
+                  placeholderTextColor="#000"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -91,16 +93,23 @@ export default function Login({ navigation }: Props) {
               </View>
               {/*======= Password INput ======== */}
               <View style={styles.inputBox}>
-                <FontAwesome6 name="lock" size={20} color="#A637FF" style={{ marginRight: 10 }} />
+                <FontAwesome6 name="lock" size={20} color="#000" style={{ marginRight: 10 }} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your Password"
-                  placeholderTextColor="#A637FF"
+                  placeholderTextColor="#000"
                   secureTextEntry={true}
                   value={password}
                   onChangeText={setPassword}
                 />
               </View>
+
+              {/*==== Forgot Password Link =====*/}
+              <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
+                <Text style={styles.forgotText}>Forgot your password?</Text>
+              </TouchableOpacity>
+
+
 
               {/*===== Login Button ===== */}
               <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={isLoading} >
@@ -114,7 +123,7 @@ export default function Login({ navigation }: Props) {
               {/*==== Navigation to Register Page =====*/}
               <TouchableOpacity onPress={() => navigation.navigate("Register")}>
                 <Text style={styles.registerText}>
-                  Create a new account? <Text style={styles.registerLink}>Register</Text>
+                  Create a new account? <Text style={styles.registerLink}>Sign Up</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -155,13 +164,22 @@ const styles = StyleSheet.create({
   },
 
   container: { flex: 1, backgroundColor: "#fff", alignItems: "center" },
-  inputBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#EDEDED", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12 },
-  input: { flex: 1, fontSize: 15, color: "#A637FF" },
+  inputBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#EDEDED", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12, borderWidth: 1, borderColor: "#A637FF" },
+  input: { flex: 1, fontSize: 15, color: "#000", fontFamily: 'Manrope-Medium' },
   logo: { width: 175, height: 60, marginTop: 30 },
   headphone: { width: 318, height: 318, marginTop: 10 },
   card: { width: "100%", backgroundColor: "#fff", padding: 20, borderRadius: 20, elevation: 6, marginTop: -10, height: "100%" },
   loginBtn: { flexDirection: "row", borderWidth: 1, borderColor: "#A637FF", backgroundColor: "#A637FF", padding: 14, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  loginText: { fontSize: 16, marginLeft: 10, fontWeight: "600", color: "white" },
-  registerText: { textAlign: "center", marginTop: 10, fontSize: 14 },
-  registerLink: { color: "#A637FF", fontWeight: "700" },
+  loginText: { fontSize: 16, marginLeft: 10, fontFamily: 'Manrope-Medium', color: "white" },
+  registerText: { textAlign: "center", marginTop: 0, fontSize: 14 },
+  registerLink: { color: "#A637FF", fontFamily: 'Manrope-Medium' },
+  forgotText: {
+    textAlign: "right",
+    marginTop: 5,
+    paddingBottom: 10,
+    fontSize: 14,
+    color: "#A637FF",
+    fontFamily: 'Manrope-Medium'
+  },
+
 });

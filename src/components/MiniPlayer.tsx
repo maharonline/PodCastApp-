@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { useTrackPlayerEvents, Event, State } from 'react-native-track-player';
 import { useAppSelector, useAppDispatch } from '../redux/hooks';
 import { setPlaybackState, setLikeStatus, setDownloadStatus, setCurrentEpisode } from '../redux/playerSlice';
 import { DatabaseService } from '../services/database';
@@ -12,6 +12,14 @@ export default function MiniPlayer() {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.auth);
     const { currentEpisode, episodes, currentIndex, isPlaying, isLiked, isDownloaded } = useAppSelector((state) => state.player);
+
+    // Listen to playback state changes from background controls
+    useTrackPlayerEvents([Event.PlaybackState], async (event) => {
+        if (event.type === Event.PlaybackState) {
+            const playing = event.state === State.Playing;
+            dispatch(setPlaybackState(playing));
+        }
+    });
 
     // Check like and download status when episode changes
     useEffect(() => {
@@ -41,10 +49,8 @@ export default function MiniPlayer() {
         try {
             if (isPlaying) {
                 await TrackPlayer.pause();
-                dispatch(setPlaybackState(false));
             } else {
                 await TrackPlayer.play();
-                dispatch(setPlaybackState(true));
             }
         } catch (e) {
             console.error('Toggle play error:', e);
