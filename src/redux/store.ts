@@ -1,8 +1,8 @@
-import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "./authSlice"; // Auth slice import
-import downloadReducer from "./downloadSlice"; // Download slice import
-import notificationReducer from "./notificationSlice"; // Notification slice import
-import playerReducer from "./playerSlice"; // Player slice import
+import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './authSlice'; // Auth slice import
+import downloadReducer from './downloadSlice'; // Download slice import
+import notificationReducer from './notificationSlice'; // Notification slice import
+import playerReducer from './playerSlice'; // Player slice import
 
 export const store = configureStore({
   reducer: {

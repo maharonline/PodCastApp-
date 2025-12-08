@@ -1,33 +1,36 @@
-import React from "react";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import { View } from "react-native";
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { View } from 'react-native';
 
 export const navigationRef = createNavigationContainerRef<any>();
 
 // Redux
-import { useAppSelector } from "../redux/hooks";
-import { RootState } from "../redux/store";
+import { useAppSelector } from '../redux/hooks';
+import { RootState } from '../redux/store';
 
 //===== Stack Screens =======
-import Login from "../Screen/Auth/Login";
-import Register from "../Screen/Auth/Register";
-import RegisterForm from "../Screen/Auth/RegisterForm";
-import ForgotPassword from "../Screen/Auth/ForgotPassword";
+import Login from '../Screen/Auth/Login';
+import Register from '../Screen/Auth/Register';
+import RegisterForm from '../Screen/Auth/RegisterForm';
+import ForgotPassword from '../Screen/Auth/ForgotPassword';
 
 //===== Tab Screens =======
-import Home from "../Screen/Dashboard/Home";
-import PlayerScreen from "../Screen/Dashboard/PlayerScreen";
-import AllEpisodes from "../Screen/Dashboard/AllEpisodes";
-import Search from "../Screen/Dashboard/Search";
-import MyLibrary from "../Screen/Dashboard/MyLibrary";
-import Profile from "../Screen/Dashboard/Profile";
-import NotificationsScreen from "../Screen/Dashboard/NotificationsScreen";
+import Home from '../Screen/Dashboard/Home';
+import PlayerScreen from '../Screen/Dashboard/PlayerScreen';
+import AllEpisodes from '../Screen/Dashboard/AllEpisodes';
+import Search from '../Screen/Dashboard/Search';
+import MyLibrary from '../Screen/Dashboard/MyLibrary';
+import Profile from '../Screen/Dashboard/Profile';
+import NotificationsScreen from '../Screen/Dashboard/NotificationsScreen';
 
 //===== Components =======
-import MiniPlayer from "../components/MiniPlayer";
+import MiniPlayer from '../components/MiniPlayer';
 
 // ----- Types -----
 type TabParamList = {
@@ -57,24 +60,29 @@ const MainStack = createNativeStackNavigator<MainStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 // ----- Tab Icon Helper -----
-const getTabIcon = (routeName: string, focused: boolean, color: string, size: number) => {
-  let iconName = "";
+const getTabIcon = (
+  routeName: string,
+  focused: boolean,
+  color: string,
+  size: number,
+) => {
+  let iconName = '';
 
   switch (routeName) {
-    case "Home":
-      iconName = focused ? "home" : "home-outline";
+    case 'Home':
+      iconName = focused ? 'home' : 'home-outline';
       break;
-    case "Search":
-      iconName = focused ? "search" : "search-outline";
+    case 'Search':
+      iconName = focused ? 'search' : 'search-outline';
       break;
-    case "Library":
-      iconName = focused ? "document-text" : "document-text-outline";
+    case 'Library':
+      iconName = focused ? 'document-text' : 'document-text-outline';
       break;
-    case "Profile":
-      iconName = focused ? "person" : "person-outline";
+    case 'Profile':
+      iconName = focused ? 'person' : 'person-outline';
       break;
     default:
-      iconName = "help-circle-outline";
+      iconName = 'help-circle-outline';
   }
 
   return <Ionicons name={iconName} color={color} size={size} />;
@@ -85,9 +93,10 @@ const MyTabs: React.FC = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarActiveTintColor: "#A637FF",
-      tabBarInactiveTintColor: "gray",
-      tabBarIcon: ({ focused, color, size }) => getTabIcon(route.name, focused, color, size),
+      tabBarActiveTintColor: '#A637FF',
+      tabBarInactiveTintColor: 'gray',
+      tabBarIcon: ({ focused, color, size }) =>
+        getTabIcon(route.name, focused, color, size),
     })}
   >
     <Tab.Screen name="Home" component={Home} />
@@ -107,7 +116,7 @@ const MainStackNavigator: React.FC = () => {
       <MainStack.Navigator
         screenOptions={{ headerShown: false }}
         screenListeners={{
-          state: (e) => {
+          state: e => {
             // Get the current route name
             const state = e.data.state;
             if (state) {
@@ -120,11 +129,17 @@ const MainStackNavigator: React.FC = () => {
         <MainStack.Screen name="Tabs" component={MyTabs} />
         <MainStack.Screen name="Player" component={PlayerScreen} />
         <MainStack.Screen name="AllEpisodes" component={AllEpisodes} />
-        <MainStack.Screen name="Notifications" component={NotificationsScreen} />
+        <MainStack.Screen
+          name="Notifications"
+          component={NotificationsScreen}
+        />
       </MainStack.Navigator>
 
       {/* Show MiniPlayer only when there's a current episode AND not on Player/AllEpisodes/Notifications screens */}
-      {currentEpisode && currentRouteName !== 'Player' && currentRouteName !== 'AllEpisodes' && currentRouteName !== 'Notifications' && <MiniPlayer />}
+      {currentEpisode &&
+        currentRouteName !== 'Player' &&
+        currentRouteName !== 'AllEpisodes' &&
+        currentRouteName !== 'Notifications' && <MiniPlayer />}
     </View>
   );
 };

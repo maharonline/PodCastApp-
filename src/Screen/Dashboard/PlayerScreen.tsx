@@ -1,33 +1,53 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Dimensions, ToastAndroid } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  Dimensions,
+  ToastAndroid,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import Slider from "@react-native-community/slider";
-import TrackPlayer, { useProgress, Event, State, useTrackPlayerEvents } from 'react-native-track-player';
-import { useAppSelector, useAppDispatch } from "../../redux/hooks";
-import { DatabaseService } from "../../services/database";
-import { DownloadService } from "../../services/DownloadService";
-import { setPlaylist, setPlaybackState, setCurrentIndex as setReduxIndex, setLikeStatus } from "../../redux/playerSlice";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Slider from '@react-native-community/slider';
+import TrackPlayer, {
+  useProgress,
+  Event,
+  State,
+  useTrackPlayerEvents,
+} from 'react-native-track-player';
+import { useAppSelector, useAppDispatch } from '../../redux/hooks';
+import { DatabaseService } from '../../services/database';
+import { DownloadService } from '../../services/DownloadService';
+import {
+  setPlaylist,
+  setPlaybackState,
+  setCurrentIndex as setReduxIndex,
+  setLikeStatus,
+} from '../../redux/playerSlice';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenProps, Episode } from '../../types';
+import { COLORS } from '../../constants/colors';
 
-interface Props {
-  navigation: any;
-  route?: any;
-}
-
-export default function PlayerScreen({ navigation, route }: Props) {
+export default function PlayerScreen({ navigation, route }: ScreenProps) {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector(state => state.auth);
   const params = route?.params || {};
   // Handle both single episode (from notification) and array of episodes (from list)
-  const episodes: any[] = params.episodes || (params.episode ? [params.episode] : []);
-  const startIndex: number = typeof params.index === 'number' ? params.index : 0;
+  const episodes: Episode[] =
+    (params.episodes as Episode[]) || (params.episode ? [params.episode] : []);
+  const startIndex: number =
+    typeof params.index === 'number' ? params.index : 0;
 
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false); // Will be updated by event listener
   const [isLiked, setIsLiked] = useState(false);
-  const [enrichedEpisode, setEnrichedEpisode] = useState<any>(null); // For cached metadata
+  const [enrichedEpisode, setEnrichedEpisode] = useState<Episode | null>(null); // For cached metadata
 
   // Use TrackPlayer's built-in progress hook
   const { position, duration } = useProgress();
@@ -43,17 +63,25 @@ export default function PlayerScreen({ navigation, route }: Props) {
         return;
       }
 
-      const safeEpisodeId = baseEpisode.audioUrl?.split('/').pop()?.split('?')[0];
+      const safeEpisodeId = baseEpisode.audioUrl
+        ?.split('/')
+        .pop()
+        ?.split('?')[0];
       if (safeEpisodeId) {
         try {
-          const cachedMetadata = await DownloadService.getEpisodeMetadata(safeEpisodeId);
+          const cachedMetadata = await DownloadService.getEpisodeMetadata(
+            safeEpisodeId,
+          );
           if (cachedMetadata) {
             console.log(`💾 Enriching current episode with cached metadata`);
             setEnrichedEpisode({ ...baseEpisode, ...cachedMetadata });
             return;
           }
         } catch (e) {
-          console.warn('Failed to load cached metadata for current episode:', e);
+          console.warn(
+            'Failed to load cached metadata for current episode:',
+            e,
+          );
         }
       }
 
@@ -65,37 +93,58 @@ export default function PlayerScreen({ navigation, route }: Props) {
   }, [currentIndex, episodes]);
 
   // Listen to playback state changes to sync UI with actual player state
-  useTrackPlayerEvents([Event.PlaybackState, Event.PlaybackError], async (event) => {
-    if (event.type === Event.PlaybackState) {
-      const state = event.state;
-      console.log('📻 Playback state changed:', state);
-      const playing = state === State.Playing;
-      setIsPlaying(playing);
-      setIsBuffering(state === State.Buffering);
-      // Update Redux state
-      dispatch(setPlaybackState(playing));
+  useTrackPlayerEvents(
+    [
+      Event.PlaybackState,
+      Event.PlaybackError,
+      Event.PlaybackActiveTrackChanged,
+    ],
+    async event => {
+      if (event.type === Event.PlaybackState) {
+        const state = event.state;
+        console.log('📻 Playback state changed:', state);
+        const playing = state === State.Playing;
+        setIsPlaying(playing);
+        setIsBuffering(state === State.Buffering);
+        // Update Redux state
+        dispatch(setPlaybackState(playing));
 
-      // If error state, log current track details
-      if (state === State.Error) {
+        // If error state, log current track details
+        if (state === State.Error) {
+          const activeTrack = await TrackPlayer.getActiveTrack();
+          console.error('❌ PLAYBACK ERROR - Track details:', {
+            url: activeTrack?.url,
+            title: activeTrack?.title,
+            artwork: activeTrack?.artwork,
+          });
+          Alert.alert(
+            'Playback Error',
+            `Unable to play this episode. Please check your internet connection or try a different episode.\n\nURL: ${activeTrack?.url?.substring(
+              0,
+              50,
+            )}...`,
+          );
+        }
+      } else if (event.type === Event.PlaybackError) {
+        console.error('❌ Playback error event:', event);
         const activeTrack = await TrackPlayer.getActiveTrack();
-        console.error('❌ PLAYBACK ERROR - Track details:', {
-          url: activeTrack?.url,
-          title: activeTrack?.title,
-          artwork: activeTrack?.artwork,
-        });
-        Alert.alert(
-          'Playback Error',
-          `Unable to play this episode. Please check your internet connection or try a different episode.\n\nURL: ${activeTrack?.url?.substring(0, 50)}...`
-        );
+        console.error('❌ Failed track URL:', activeTrack?.url);
+      } else if (event.type === Event.PlaybackActiveTrackChanged) {
+        // Handle track change from background controls
+        console.log('🔄 Track changed from background controls');
+        try {
+          const trackIndex = event.index;
+          if (trackIndex !== undefined && trackIndex !== null) {
+            console.log(`🎵 New track index: ${trackIndex}`);
+            setCurrentIndex(trackIndex);
+            dispatch(setReduxIndex(trackIndex));
+          }
+        } catch (e) {
+          console.error('Error handling track change:', e);
+        }
       }
-    }
-
-    if (event.type === Event.PlaybackError) {
-      console.error('❌ PLAYBACK ERROR EVENT:', event);
-      const activeTrack = await TrackPlayer.getActiveTrack();
-      console.error('❌ Failed track URL:', activeTrack?.url);
-    }
-  });
+    },
+  );
 
   // Check if current episode is liked
   useEffect(() => {
@@ -103,12 +152,18 @@ export default function PlayerScreen({ navigation, route }: Props) {
       if (!user?.id || !current) return;
       try {
         const library = await DatabaseService.getLibrary(user.id, 'liked');
-        const safeId = DatabaseService.getEpisodeIdFromUrl(current.audioUrl || current.id);
-        const isFound = library?.some((item: any) => item.episode_id === safeId);
+        const safeId = DatabaseService.getEpisodeIdFromUrl(
+          current.audioUrl || current.id || '',
+        );
+        const isFound = library?.some(
+          (item: any) => item.episode_id === safeId,
+        );
         setIsLiked(!!isFound);
         // Update Redux state
         dispatch(setLikeStatus(!!isFound));
-      } catch (e) { console.log('Error checking like status', e); }
+      } catch (e) {
+        console.log('Error checking like status', e);
+      }
     };
     checkLikeStatus();
   }, [currentIndex, user?.id, dispatch]);
@@ -118,9 +173,17 @@ export default function PlayerScreen({ navigation, route }: Props) {
     const saveToHistory = async () => {
       if (!user?.id || !current) return;
       try {
-        const safeId = DatabaseService.getEpisodeIdFromUrl(current.audioUrl || current.id);
-        await DatabaseService.addToLibrary(user.id, { ...current, id: safeId }, 'history');
-      } catch (e) { console.log('Error saving history', e); }
+        const safeId = DatabaseService.getEpisodeIdFromUrl(
+          current.audioUrl || current.id || '',
+        );
+        await DatabaseService.addToLibrary(
+          user.id,
+          { ...current, id: safeId },
+          'history',
+        );
+      } catch (e) {
+        console.log('Error saving history', e);
+      }
     };
 
     if (currentIndex >= 0 && episodes.length > 0) {
@@ -130,22 +193,31 @@ export default function PlayerScreen({ navigation, route }: Props) {
 
   const toggleLike = async () => {
     if (!user?.id) {
-      ToastAndroid.show("Sign In Required, Please sign in to like episodes.",ToastAndroid.LONG);
+      ToastAndroid.show(
+        'Sign In Required, Please sign in to like episodes.',
+        ToastAndroid.LONG,
+      );
       return;
     }
     try {
-      const safeId = DatabaseService.getEpisodeIdFromUrl(current.audioUrl || current.id);
+      const safeId = DatabaseService.getEpisodeIdFromUrl(
+        current.audioUrl || current.id || '',
+      );
       if (isLiked) {
         await DatabaseService.removeFromLibrary(user.id, safeId, 'liked');
         setIsLiked(false);
         dispatch(setLikeStatus(false));
       } else {
-        await DatabaseService.addToLibrary(user.id, { ...current, id: safeId }, 'liked');
+        await DatabaseService.addToLibrary(
+          user.id,
+          { ...current, id: safeId },
+          'liked',
+        );
         setIsLiked(true);
         dispatch(setLikeStatus(true));
       }
     } catch (e) {
-      Alert.alert("Error", "Could not update like status.");
+      Alert.alert('Error', 'Could not update like status.');
     }
   };
 
@@ -164,7 +236,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
           }
         }
 
-        //CHECK IF TRACK ALREADY PLAYING 
+        //CHECK IF TRACK ALREADY PLAYING
 
         const activeTrack = await TrackPlayer.getActiveTrack();
         const currentMeta = episodes[startIndex];
@@ -172,7 +244,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
         // Extract episode ID from both URLs to compare (handles both local and online URLs)
         const getEpisodeId = (url: string) => {
           if (!url) return null;
-          
+
           const parts = url.split('/');
           const filename = parts[parts.length - 1];
           return filename.replace('.mp3.mp3', '.mp3').replace('.mp3', '');
@@ -182,8 +254,13 @@ export default function PlayerScreen({ navigation, route }: Props) {
         const currentEpisodeId = getEpisodeId(currentMeta?.audioUrl || '');
 
         // Check if same track is already playing by comparing episode IDs
-        if (activeTrack && currentMeta && activeEpisodeId && currentEpisodeId && activeEpisodeId === currentEpisodeId) {
-
+        if (
+          activeTrack &&
+          currentMeta &&
+          activeEpisodeId &&
+          currentEpisodeId &&
+          activeEpisodeId === currentEpisodeId
+        ) {
           // Just sync the local state with what's already playing
           const state = await TrackPlayer.getPlaybackState();
           setIsPlaying(state.state === State.Playing);
@@ -192,11 +269,13 @@ export default function PlayerScreen({ navigation, route }: Props) {
           return; // THIS PREVENTS RESTART
         }
 
-    // Build track list
+        // Build track list
         let downloadedMap = new Map<string, string>();
         if (user?.id) {
           try {
-            const allDownloads = await DownloadService.getDownloadedEpisodes(user.id);
+            const allDownloads = await DownloadService.getDownloadedEpisodes(
+              user.id,
+            );
             allDownloads.forEach(d => {
               if (d.episode_id && d.local_path) {
                 downloadedMap.set(d.episode_id, d.local_path);
@@ -207,38 +286,45 @@ export default function PlayerScreen({ navigation, route }: Props) {
           }
         }
 
-        const tracks = await Promise.all(episodes.map(async (ep, i) => {
-          let audioSource = ep.audioUrl;
-          let episodeData = ep; 
+        const tracks = await Promise.all(
+          episodes.map(async (ep, i) => {
+            let audioSource = ep.audioUrl;
+            let episodeData = ep;
 
-          const safeEpisodeId = ep.audioUrl?.split('/').pop()?.split('?')[0];
-          if (safeEpisodeId && downloadedMap.has(safeEpisodeId)) {
-            audioSource = downloadedMap.get(safeEpisodeId);
-            console.log(`📥 Using downloaded file for ${ep.title}: ${audioSource}`);
+            const safeEpisodeId = ep.audioUrl?.split('/').pop()?.split('?')[0];
+            if (safeEpisodeId && downloadedMap.has(safeEpisodeId)) {
+              audioSource = downloadedMap.get(safeEpisodeId) || null;
+              console.log(
+                `📥 Using downloaded file for ${ep.title}: ${audioSource}`,
+              );
 
-            // Load cached metadata for offline playback
-            try {
-              const cachedMetadata = await DownloadService.getEpisodeMetadata(safeEpisodeId);
-              if (cachedMetadata) {
-                console.log(`💾 Loaded cached metadata for ${safeEpisodeId}`);
-                episodeData = { ...ep, ...cachedMetadata }; // Merge cached data
+              // Load cached metadata for offline playback
+              try {
+                const cachedMetadata = await DownloadService.getEpisodeMetadata(
+                  safeEpisodeId,
+                );
+                if (cachedMetadata) {
+                  console.log(`💾 Loaded cached metadata for ${safeEpisodeId}`);
+                  episodeData = { ...ep, ...cachedMetadata }; // Merge cached data
+                }
+              } catch (e) {
+                console.warn('Failed to load cached metadata:', e);
               }
-            } catch (e) {
-              console.warn('Failed to load cached metadata:', e);
+            } else {
+              console.log(
+                `🌐 Using online URL for ${ep.title}: ${audioSource}`,
+              );
             }
-          } else {
-            console.log(`🌐 Using online URL for ${ep.title}: ${audioSource}`);
-          }
 
-          return {
-            id: i,
-            url: audioSource,
-            title: episodeData.title || 'Unknown',
-            artist: episodeData.pubDate || "Unknown",
-            artwork: episodeData.image || episodeData.artwork,
-          };
-        }));
-
+            return {
+              id: i,
+              url: audioSource,
+              title: episodeData.title || 'Unknown',
+              artist: episodeData.pubDate || 'Unknown',
+              artwork: episodeData.image || episodeData.artwork,
+            };
+          }),
+        );
 
         await TP.reset();
         await TP.add(tracks);
@@ -246,14 +332,13 @@ export default function PlayerScreen({ navigation, route }: Props) {
         await TP.skip(startIndex);
         setCurrentIndex(startIndex);
 
-        console.log("▶️ Starting playback...");
+        console.log('▶️ Starting playback...');
         await TP.play();
 
         dispatch(setPlaylist({ episodes, index: startIndex }));
-
       } catch (e) {
-        console.warn("TrackPlayer setup failed:", e);
-        Alert.alert("Playback error", "Unable to start audio player.");
+        console.warn('TrackPlayer setup failed:', e);
+        Alert.alert('Playback error', 'Unable to start audio player.');
       }
     }
 
@@ -266,7 +351,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
           const trackId = await TP.getCurrentTrack();
           if (trackId != null) setCurrentIndex(Number(trackId));
         }
-      } catch (e) { }
+      } catch (e) {}
     };
 
     const interval: any = setInterval(onTrackChange, 1000);
@@ -274,7 +359,6 @@ export default function PlayerScreen({ navigation, route }: Props) {
     return () => {
       mounted = false;
       clearInterval(interval);
-      
     };
   }, []);
 
@@ -307,7 +391,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
           setCurrentIndex(newIndex);
           dispatch(setReduxIndex(newIndex));
         } else {
-          setCurrentIndex((prev) => {
+          setCurrentIndex(prev => {
             const newIndex = Math.min(prev + 1, episodes.length - 1);
             dispatch(setReduxIndex(newIndex));
             return newIndex;
@@ -315,7 +399,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
         }
       } else {
         // fallback: advance local index
-        setCurrentIndex((prev) => Math.min(prev + 1, episodes.length - 1));
+        setCurrentIndex(prev => Math.min(prev + 1, episodes.length - 1));
       }
       if (TP.play) await TP.play();
       setIsPlaying(true);
@@ -335,7 +419,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
           setCurrentIndex(newIndex);
           dispatch(setReduxIndex(newIndex));
         } else {
-          setCurrentIndex((prev) => {
+          setCurrentIndex(prev => {
             const newIndex = Math.max(prev - 1, 0);
             dispatch(setReduxIndex(newIndex));
             return newIndex;
@@ -343,7 +427,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
         }
       } else {
         // fallback: decrement local index
-        setCurrentIndex((prev) => Math.max(prev - 1, 0));
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
       }
       if (TP.play) await TP.play();
       setIsPlaying(true);
@@ -373,16 +457,18 @@ export default function PlayerScreen({ navigation, route }: Props) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
       <View style={styles.container}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-
           {/* ===== Header ===== */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => navigation.goBack()}
+            >
               <Ionicons name="arrow-back" size={20} color="#000" />
             </TouchableOpacity>
 
@@ -391,16 +477,28 @@ export default function PlayerScreen({ navigation, route }: Props) {
             </Text>
 
             <TouchableOpacity onPress={toggleLike}>
-              <Ionicons name={isLiked ? "bookmark" : "bookmark-outline"} style={styles.bookmarkIcon} size={24} color={isLiked ? "#A637FF" : "#000"} />
+              <Ionicons
+                name={isLiked ? 'bookmark' : 'bookmark-outline'}
+                style={styles.bookmarkIcon}
+                size={24}
+                color={isLiked ? COLORS.PRIMARY : COLORS.BLACK}
+              />
             </TouchableOpacity>
           </View>
 
           {/* ===== Podcast Image ===== */}
-          <Image source={{ uri: current?.image || 'https://via.placeholder.com/600' }} style={styles.podcastImage} />
+          <Image
+            source={{
+              uri: current?.image || 'https://via.placeholder.com/600',
+            }}
+            style={styles.podcastImage}
+          />
 
           {/* ===== Text Details ===== */}
           <Text style={styles.author}>{current?.artist || ''}</Text>
-          <Text style={styles.podcastTitle}>{current?.title || 'Unknown title'}</Text>
+          <Text style={styles.podcastTitle}>
+            {current?.title || 'Unknown title'}
+          </Text>
           <Text style={styles.episode}>{current?.pubDate || ''}</Text>
 
           {/* ===== Horizontal Line ===== */}
@@ -417,10 +515,14 @@ export default function PlayerScreen({ navigation, route }: Props) {
             {/* Track Container with margins */}
             <View style={styles.trackContainer}>
               {/* Active Track */}
-              <View style={[
-                styles.customTrackActive,
-                { width: `${duration > 0 ? (position / duration) * 100 : 0}%` }
-              ]} />
+              <View
+                style={[
+                  styles.customTrackActive,
+                  {
+                    width: `${duration > 0 ? (position / duration) * 100 : 0}%`,
+                  },
+                ]}
+              />
             </View>
 
             <Slider
@@ -428,7 +530,7 @@ export default function PlayerScreen({ navigation, route }: Props) {
               minimumValue={0}
               maximumValue={1}
               value={duration > 0 ? position / duration : 0}
-              onValueChange={async (value) => {
+              onValueChange={async value => {
                 try {
                   const newPosition = value * duration;
                   await TrackPlayer.seekTo(newPosition);
@@ -452,11 +554,20 @@ export default function PlayerScreen({ navigation, route }: Props) {
               <MaterialIcons name="replay-10" size={20} color="#000" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.playBtn} onPress={togglePlay} disabled={isBuffering}>
+            <TouchableOpacity
+              style={styles.playBtn}
+              onPress={togglePlay}
+              disabled={isBuffering}
+            >
               {isBuffering ? (
-                <ActivityIndicator size="large" color="#A637FF" />
+                <ActivityIndicator size="large" color={COLORS.PRIMARY} />
               ) : (
-                <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#A637FF" style={styles.pausebtn} />
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={34}
+                  color={COLORS.PRIMARY}
+                  style={styles.pausebtn}
+                />
               )}
             </TouchableOpacity>
 
@@ -468,18 +579,21 @@ export default function PlayerScreen({ navigation, route }: Props) {
               <Ionicons name="play-skip-forward" size={30} color="#000" />
             </TouchableOpacity>
           </View>
-
         </ScrollView>
 
         {/* ===== More Button (Sticky Bottom) ===== */}
         <TouchableOpacity
           style={styles.moreBtn}
-          onPress={() => navigation.navigate("AllEpisodes", { episodes })}
+          onPress={() => navigation.navigate('AllEpisodes', { episodes })}
         >
-          <Ionicons name="chevron-up" size={20} color="#fff" style={{ marginBottom: -5 }} />
+          <Ionicons
+            name="chevron-up"
+            size={20}
+            color="#fff"
+            style={{ marginBottom: -5 }}
+          />
           <Text style={styles.moreText}>More</Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );
@@ -490,7 +604,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
   },
 
   scrollContent: {
@@ -499,17 +613,17 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   backBtn: {
-    backgroundColor: "#F2F2F2",
+    backgroundColor: '#F2F2F2',
     width: 36,
     height: 36,
     borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
   },
 
@@ -521,13 +635,13 @@ const styles = StyleSheet.create({
 
   bookmarkIcon: {
     borderWidth: 1,
-    borderColor: "#DDDDDD",
+    borderColor: '#DDDDDD',
     borderRadius: 20,
     padding: 5,
   },
 
   podcastImage: {
-    width: "100%",
+    width: '100%',
     height: SCREEN_HEIGHT * 0.4, // 40% of screen height (responsive)
     maxHeight: 400, // Maximum height cap
     minHeight: 250, // Minimum height for very small screens
@@ -537,7 +651,7 @@ const styles = StyleSheet.create({
 
   author: {
     fontSize: 14,
-    textAlign: "center",
+    textAlign: 'center',
     opacity: 0.6,
     marginTop: 10,
   },
@@ -545,14 +659,14 @@ const styles = StyleSheet.create({
   podcastTitle: {
     fontSize: SCREEN_WIDTH < 360 ? 18 : 20, // Smaller font on small screens
     fontFamily: 'Inter-SemiBold',
-    textAlign: "center",
+    textAlign: 'center',
     marginTop: 5,
     paddingHorizontal: 10,
   },
 
   episode: {
     fontSize: 14,
-    textAlign: "center",
+    textAlign: 'center',
     fontFamily: 'Inter-Regular',
     opacity: 0.6,
     marginBottom: 20,
@@ -560,14 +674,14 @@ const styles = StyleSheet.create({
 
   horizontalLine: {
     height: 1,
-    backgroundColor: "#E0E0E0",
-    width: "100%",
+    backgroundColor: '#E0E0E0',
+    width: '100%',
     marginBottom: 5,
   },
 
   sliderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 5,
     paddingHorizontal: 15, // Simplified - removed negative margins
     marginTop: 10,
@@ -579,7 +693,7 @@ const styles = StyleSheet.create({
   },
 
   sliderContainer: {
-    width: "100%",
+    width: '100%',
     height: 40,
     marginTop: -10,
     justifyContent: 'center',
@@ -595,30 +709,30 @@ const styles = StyleSheet.create({
 
   customTrackActive: {
     height: '100%',
-    backgroundColor: '#A637FF',
+    backgroundColor: COLORS.PRIMARY,
   },
 
   slider: {
     position: 'absolute',
-    width: "100%",
+    width: '100%',
     height: 40,
   },
 
   controls: {
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
     marginTop: 10,
     paddingHorizontal: 10,
   },
 
   playBtn: {
-    backgroundColor: "#F4E5FF",
+    backgroundColor: '#F4E5FF',
     width: 55,
     height: 55,
     borderRadius: 35,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     textAlign: 'center',
     elevation: 5,
   },
@@ -626,7 +740,7 @@ const styles = StyleSheet.create({
   pausebtn: {
     // textAlign: 'center'
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   smallBtn: {
@@ -642,22 +756,22 @@ const styles = StyleSheet.create({
   },
 
   moreBtn: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 44,
-    alignSelf: "center",
-    backgroundColor: "#A637FF",
+    alignSelf: 'center',
+    backgroundColor: COLORS.PRIMARY,
     paddingVertical: 10,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     width: Math.min(157, SCREEN_WIDTH * 0.4), // Responsive width
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingBottom: 15,
   },
 
   moreText: {
-    textAlign: "center",
-    color: "#fff",
+    textAlign: 'center',
+    color: '#fff',
     fontSize: 15,
     fontFamily: 'Inter-Regular',
   },
