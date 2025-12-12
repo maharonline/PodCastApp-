@@ -73,15 +73,12 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
             safeEpisodeId,
           );
           if (cachedMetadata) {
-            console.log(`💾 Enriching current episode with cached metadata`);
+
             setEnrichedEpisode({ ...baseEpisode, ...cachedMetadata });
             return;
           }
         } catch (e) {
-          console.warn(
-            'Failed to load cached metadata for current episode:',
-            e,
-          );
+
         }
       }
 
@@ -102,7 +99,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
     async event => {
       if (event.type === Event.PlaybackState) {
         const state = event.state;
-        console.log('📻 Playback state changed:', state);
+
         const playing = state === State.Playing;
         setIsPlaying(playing);
         setIsBuffering(state === State.Buffering);
@@ -112,11 +109,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
         // If error state, log current track details
         if (state === State.Error) {
           const activeTrack = await TrackPlayer.getActiveTrack();
-          console.error('❌ PLAYBACK ERROR - Track details:', {
-            url: activeTrack?.url,
-            title: activeTrack?.title,
-            artwork: activeTrack?.artwork,
-          });
+
           Alert.alert(
             'Playback Error',
             `Unable to play this episode. Please check your internet connection or try a different episode.\n\nURL: ${activeTrack?.url?.substring(
@@ -126,21 +119,21 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
           );
         }
       } else if (event.type === Event.PlaybackError) {
-        console.error('❌ Playback error event:', event);
+
         const activeTrack = await TrackPlayer.getActiveTrack();
-        console.error('❌ Failed track URL:', activeTrack?.url);
+
       } else if (event.type === Event.PlaybackActiveTrackChanged) {
         // Handle track change from background controls
-        console.log('🔄 Track changed from background controls');
+
         try {
           const trackIndex = event.index;
           if (trackIndex !== undefined && trackIndex !== null) {
-            console.log(`🎵 New track index: ${trackIndex}`);
+
             setCurrentIndex(trackIndex);
             dispatch(setReduxIndex(trackIndex));
           }
         } catch (e) {
-          console.error('Error handling track change:', e);
+
         }
       }
     },
@@ -162,7 +155,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
         // Update Redux state
         dispatch(setLikeStatus(!!isFound));
       } catch (e) {
-        console.log('Error checking like status', e);
+
       }
     };
     checkLikeStatus();
@@ -182,7 +175,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
           'history',
         );
       } catch (e) {
-        console.log('Error saving history', e);
+
       }
     };
 
@@ -282,7 +275,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
               }
             });
           } catch (e) {
-            console.warn('Error fetching downloaded episodes:', e);
+
           }
         }
 
@@ -294,9 +287,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
             const safeEpisodeId = ep.audioUrl?.split('/').pop()?.split('?')[0];
             if (safeEpisodeId && downloadedMap.has(safeEpisodeId)) {
               audioSource = downloadedMap.get(safeEpisodeId) || null;
-              console.log(
-                `📥 Using downloaded file for ${ep.title}: ${audioSource}`,
-              );
+
 
               // Load cached metadata for offline playback
               try {
@@ -304,16 +295,14 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
                   safeEpisodeId,
                 );
                 if (cachedMetadata) {
-                  console.log(`💾 Loaded cached metadata for ${safeEpisodeId}`);
+
                   episodeData = { ...ep, ...cachedMetadata }; // Merge cached data
                 }
               } catch (e) {
-                console.warn('Failed to load cached metadata:', e);
+
               }
             } else {
-              console.log(
-                `🌐 Using online URL for ${ep.title}: ${audioSource}`,
-              );
+
             }
 
             return {
@@ -332,12 +321,12 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
         await TP.skip(startIndex);
         setCurrentIndex(startIndex);
 
-        console.log('▶️ Starting playback...');
+
         await TP.play();
 
         dispatch(setPlaylist({ episodes, index: startIndex }));
       } catch (e) {
-        console.warn('TrackPlayer setup failed:', e);
+
         Alert.alert('Playback error', 'Unable to start audio player.');
       }
     }
@@ -351,7 +340,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
           const trackId = await TP.getCurrentTrack();
           if (trackId != null) setCurrentIndex(Number(trackId));
         }
-      } catch (e) {}
+      } catch (e) { }
     };
 
     const interval: any = setInterval(onTrackChange, 1000);
@@ -364,18 +353,18 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
 
   const togglePlay = async () => {
     try {
-      console.log('🎮 Toggle play - current state:', isPlaying);
+
 
       if (isPlaying) {
-        console.log('⏸️ Pausing...');
+
         await TrackPlayer.pause();
       } else {
-        console.log('▶️ Playing...');
+
         await TrackPlayer.play();
       }
       // Note: isPlaying state will be updated by the event listener
     } catch (e) {
-      console.error('❌ Toggle play error:', e);
+
       Alert.alert('Playback Error', 'Unable to toggle playback');
     }
   };
@@ -404,7 +393,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
       if (TP.play) await TP.play();
       setIsPlaying(true);
     } catch (e) {
-      console.warn('Next failed', e);
+
     }
   };
 
@@ -432,7 +421,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
       if (TP.play) await TP.play();
       setIsPlaying(true);
     } catch (e) {
-      console.warn('Previous failed', e);
+
     }
   };
 
@@ -441,7 +430,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
       const newPos = Math.max(0, Math.min(position + offsetSeconds, duration));
       await TrackPlayer.seekTo(newPos);
     } catch (e) {
-      console.warn('Seek failed:', e);
+
     }
   };
 
@@ -535,7 +524,7 @@ export default function PlayerScreen({ navigation, route }: ScreenProps) {
                   const newPosition = value * duration;
                   await TrackPlayer.seekTo(newPosition);
                 } catch (e) {
-                  console.warn('Seek failed:', e);
+
                 }
               }}
               minimumTrackTintColor="transparent"
@@ -738,7 +727,7 @@ const styles = StyleSheet.create({
   },
 
   pausebtn: {
-    // textAlign: 'center'
+
     justifyContent: 'center',
     alignItems: 'center',
   },

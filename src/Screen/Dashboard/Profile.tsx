@@ -53,17 +53,17 @@ export default function EditProfile({ navigation }: Props) {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const fetchProfileData = async () => {
-    console.log('Profile: fetchProfileData called. User ID:', user?.id);
+
 
     if (!user?.id) {
-      console.log('Profile: No user ID found, stopping fetch.');
+
       setLoading(false);
       return;
     }
 
     try {
       if (!refreshing) setLoading(true);
-      console.log('Profile: Starting database fetches...');
+
 
       // Fetch Stats, History, and Downloaded Episodes in parallel
       const [statsData, historyData, downloadedData] = await Promise.all([
@@ -137,7 +137,7 @@ export default function EditProfile({ navigation }: Props) {
 
     const callback = async (response: any) => {
       if (response.didCancel) {
-        console.log('User cancelled image picker');
+
       } else if (response.errorCode) {
         Alert.alert('Error', response.errorMessage);
       } else if (response.assets && response.assets.length > 0) {
@@ -202,7 +202,7 @@ export default function EditProfile({ navigation }: Props) {
         email: user.email || '',
       });
 
-      console.log('Profile updated in Supabase:', updatedProfile);
+
 
       // Update Redux state
       dispatch(
@@ -234,7 +234,7 @@ export default function EditProfile({ navigation }: Props) {
       ToastAndroid.show('Signed out successfully', ToastAndroid.LONG);
 
       const { error } = await supabase.auth.signOut();
-      if (error) console.log('Supabase sign out failed:', error.message);
+
     } catch (error: any) {
       Alert.alert(
         'Error',
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    // backgroundColor: "rgba(255,255,255,0.3)",
+
     backgroundColor: '#fff',
   },
 
@@ -577,14 +577,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 15,
-    // fontFamily: 'PublicSans-Bold',
+
   },
 
   recentPlayNumber: {
     width: 20,
     fontSize: 17,
     fontWeight: '700',
-    // marginRight: 10,
+
   },
 
   recentPlayCard: {

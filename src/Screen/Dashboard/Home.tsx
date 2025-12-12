@@ -12,14 +12,11 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
-import { Circle, Svg } from 'react-native-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Feather from 'react-native-vector-icons/Feather';
 import { useAppSelector, useAppDispatch } from '../../redux/hooks';
 import { DownloadService } from '../../services/DownloadService';
 import { DatabaseService } from '../../services/database';
-import { DownloadManager } from '../../controller/DownloadManager';
-import { SUPABASE_ANON_KEY } from '@env';
+import { SUPABASE_ANON_KEY, SUPABASE_RSS_URL } from '@env';
 import PodcastCard from '../../components/PodCastCard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { setPlaylist } from '../../redux/playerSlice';
@@ -27,6 +24,9 @@ import { Episode, RootState } from '../../types';
 import { COLORS } from '../../constants/colors';
 
 export default function Home() {
+
+  // console.log(SUPABASE_RSS_URL);
+
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state: RootState) => state.auth);
   const { unreadCount } = useAppSelector(
@@ -41,8 +41,6 @@ export default function Home() {
   const [enrichedEpisodes, setEnrichedEpisodes] = useState<Episode[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const SUPABASE_RSS_URL =
-    'https://bfchuybsseczmjmmosda.supabase.co/functions/v1/rss';
   const navigation = useNavigation<any>();
 
   const trendingimages = [

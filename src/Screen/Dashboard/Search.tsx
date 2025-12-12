@@ -19,7 +19,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { useAppSelector, useAppDispatch } from '../../redux/hooks';
 import { DownloadService } from '../../services/DownloadService';
 import { DatabaseService } from '../../services/database';
-import { SUPABASE_ANON_KEY } from '@env';
+import { SUPABASE_ANON_KEY, SUPABASE_RSS_URL } from '@env';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PodcastCard from '../../components/PodCastCard';
 import { setPlaylist } from '../../redux/playerSlice';
@@ -62,6 +62,7 @@ const podcasts = [
 ];
 
 export default function Search() {
+
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state: RootState) => state.auth);
   const navigation = useNavigation<any>();
@@ -70,19 +71,10 @@ export default function Search() {
   const [filteredEpisodes, setFilteredEpisodes] = useState<Episode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [downloadingEpisodes, setDownloadingEpisodes] = useState<Set<string>>(
-    new Set(),
-  );
-  const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(
-    new Map(),
-  );
   const [downloadedEpisodes, setDownloadedEpisodes] = useState<Set<string>>(
     new Set(),
   );
   const [refreshing, setRefreshing] = useState(false);
-
-  const SUPABASE_RSS_URL =
-    'https://bfchuybsseczmjmmosda.supabase.co/functions/v1/rss';
 
   useFocusEffect(
     useCallback(() => {
@@ -114,12 +106,13 @@ export default function Search() {
     }
   };
 
+
   const fetchEpisodes = async () => {
     try {
       const response = await fetch(SUPABASE_RSS_URL, {
-        method: 'POST', // ya GET bhi ho sakta hai
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`, // ← yahan token
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
       });
@@ -376,19 +369,13 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderRadius: 12,
     paddingBottom: 10,
-    // backgroundColor: "",
-    // marginBottom: 20,
-    // shadowColor: '#000',
-    // shadowOpacity: 0.15,
-    // shadowRadius: 6,
-    // elevation: 6,
+
   },
   cardImage: {
     width: '100%',
     height: 125,
     borderRadius: 12,
-    // borderTopLeftRadius: 12,
-    // borderTopRightRadius: 12,
+
   },
 
   title: {

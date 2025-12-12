@@ -9,7 +9,7 @@ import { Episode, NotificationData } from '../types';
 
 class NotificationService {
   initialize() {
-    console.log('NotificationService: initialize() called');
+
 
     if (!ONESIGNAL_APP_ID) {
       console.error('OneSignal App ID missing!');
@@ -32,9 +32,6 @@ class NotificationService {
 
     // Handle notification opened/clicked
     OneSignal.Notifications.addEventListener('click', (event: any) => {
-      console.log('🔔 OneSignal: NOTIFICATION CLICKED!');
-      console.log('📦 Full event data:', JSON.stringify(event, null, 2));
-
       const notificationData = {
         id: event.notification.notificationId,
         title: event.notification.title || 'New Notification',
@@ -54,15 +51,12 @@ class NotificationService {
       const data = event.notification.additionalData as
         | NotificationData
         | undefined;
-      console.log('📋 Additional data:', data);
+
 
       if (data && (data.type === 'new_episode' || data.episode_url)) {
-        console.log(
-          '🎵 New episode notification detected, navigating to player...',
-        );
         this.navigateToPlayer(data);
       } else {
-        console.log('ℹ️ Not a new episode notification');
+
         // Navigate to Notifications screen for generic notifications
         if (navigationRef.isReady()) {
           navigationRef.navigate('Root', { screen: 'Notifications' });
@@ -74,7 +68,7 @@ class NotificationService {
     OneSignal.Notifications.addEventListener(
       'foregroundWillDisplay',
       (event: any) => {
-        console.log('🔔 OneSignal: NOTIFICATION RECEIVED IN FOREGROUND!');
+
 
         const notification = event.getNotification();
 
@@ -97,10 +91,7 @@ class NotificationService {
           );
         }
 
-        console.log('✅ Notification added to store');
-        console.log(
-          '⚠️ Note: Foreground notifications do NOT appear in system tray by default',
-        );
+
       },
     );
 
@@ -109,8 +100,7 @@ class NotificationService {
       const subscription = OneSignal.User.pushSubscription as any;
       const userId = await subscription?.getIdAsync();
       const token = await subscription?.getTokenAsync();
-      console.log('OneSignal User ID:', userId);
-      console.log('OneSignal Push Token:', token);
+
 
       if (!userId || !token) {
         console.warn(
@@ -120,7 +110,7 @@ class NotificationService {
           '💡 Try testing on a real device or send a test notification from OneSignal Dashboard.',
         );
       } else {
-        console.log('✅ Device successfully registered with OneSignal!');
+
       }
     }, 3000);
   }
@@ -155,7 +145,7 @@ class NotificationService {
       },
     };
 
-    console.log('Navigating to Player with episode:', episode);
+
     navigationRef.navigate('Root', { screen: 'Player', params: { episode } });
   }
 }

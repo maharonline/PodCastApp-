@@ -48,7 +48,7 @@ export default function RegisterForm({ navigation }: Props) {
 
       if (error) {
         Alert.alert('Error', error.message);
-        console.log('Supabase register error:', error);
+
         return; // yaha stop ho jaye ga
       }
 
@@ -62,7 +62,7 @@ export default function RegisterForm({ navigation }: Props) {
         });
 
         if (profileError && !profileError.message.includes('duplicate key')) {
-          console.error('Error creating profile:', profileError);
+
           // Don't block registration if profile creation fails
         }
       }

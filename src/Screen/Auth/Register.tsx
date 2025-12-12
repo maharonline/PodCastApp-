@@ -115,7 +115,7 @@ export default function Register({ navigation }: Props) {
         return;
       }
 
-      // idhar supabase ka call laga
+
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: identityToken,
@@ -161,7 +161,7 @@ export default function Register({ navigation }: Props) {
           <View style={styles.card}>
             {/*===== Email Sign Up =====*/}
             <TouchableOpacity style={styles.emailBtn} onPress={handleRegister}>
-              {/* <FontAwesome6 name="envelope" size={22} color="#000" /> */}
+
               <Image
                 source={require('../../assets/message.png')}
                 style={{ width: 24, height: 24 }}
@@ -181,7 +181,7 @@ export default function Register({ navigation }: Props) {
               style={styles.socialBtn}
               onPress={handleGoogleSignIn}
             >
-              {/* <FontAwesome6 name="google" size={22} color="#4285F4" /> */}
+
               <Image
                 source={require('../../assets/google.png')}
                 style={{ width: 24, height: 24 }}
@@ -194,7 +194,7 @@ export default function Register({ navigation }: Props) {
               style={styles.socialBtn}
               onPress={handleAppleSignIn}
             >
-              {/* <FontAwesome6 name="apple" size={22} color="#000" /> */}
+
               <Image
                 source={require('../../assets/apple.png')}
                 style={{ width: 24, height: 24 }}

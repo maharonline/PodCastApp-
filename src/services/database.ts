@@ -138,8 +138,8 @@ export const DatabaseService = {
     status: 'queue' | 'liked' | 'history' | 'downloaded',
   ) {
     try {
-      this.ensureUserProfile(userId).catch(() => {
-      });
+      this.ensureUserProfile(userId).catch(() => { });
+
 
       await this.upsertEpisode(episode);
 
@@ -156,9 +156,8 @@ export const DatabaseService = {
       if (error) {
 
       }
-    } catch (err) {
+    } catch (err) { }
 
-    }
   },
 
   async removeFromLibrary(
@@ -180,7 +179,7 @@ export const DatabaseService = {
     userId: string,
     status: 'queue' | 'liked' | 'history' | 'downloaded',
   ) {
-    console.log(`Database: getLibrary-${status} starting...`);
+
     try {
       const { data, error } = await supabase
         .from('user_library')

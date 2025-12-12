@@ -7,18 +7,14 @@ import { DownloadProgress, DownloadedEpisode, EpisodeMetadata } from '../types';
 export type { DownloadProgress, DownloadedEpisode };
 
 export const DownloadService = {
-  /** Cache size limit (500 MB) */
   CACHE_SIZE_LIMIT: 500 * 1024 * 1024,
 
-  /** Map of active download tasks */
   activeDownloads: new Map<string, { jobId: number; promise: Promise<any> }>(),
 
-  /** Get the download directory path based on platform */
   getDownloadDirectory(): string {
     return `${RNFS.DocumentDirectoryPath}/downloads`;
   },
 
-  /** Ensure the download directory exists */
   async initializeDownloadDirectory(): Promise<void> {
     try {
       const dir = this.getDownloadDirectory();
@@ -27,11 +23,9 @@ export const DownloadService = {
         await RNFS.mkdir(dir);
       }
     } catch (error) {
-      // Error creating download directory
     }
   },
 
-  /** Helper to check if a string is a valid URL */
   isUrl(str: string): boolean {
     try {
       new URL(str);
@@ -57,12 +51,9 @@ export const DownloadService = {
     return `${cleanEpisodeId}${extension}`;
   },
 
-  /** Full file path for a given filename */
   getFilePath(filename: string): string {
     return `${this.getDownloadDirectory()}/${filename}`;
   },
-
-  /** Check if an episode is already downloaded (DB lookup) */
   async isDownloaded(userId: string, episodeId: string): Promise<boolean> {
     try {
       const download = await this.getDownloadedEpisode(userId, episodeId);
@@ -72,7 +63,6 @@ export const DownloadService = {
     }
   },
 
-  /** Retrieve a downloaded episode record from Supabase */
   async getDownloadedEpisode(
     userId: string,
     episodeId: string,
@@ -87,11 +77,9 @@ export const DownloadService = {
 
       if (error && error.code !== 'PGRST116') throw error;
 
-      // Verify the file still exists on disk
       if (data && data.local_path) {
         const exists = await RNFS.exists(data.local_path);
         if (!exists) {
-          // Clean up stale DB entry
           await this.removeDownloadFromDatabase(userId, episodeId);
           return null;
         }
@@ -103,7 +91,6 @@ export const DownloadService = {
     }
   },
 
-  /** Get all downloaded episodes for a user */
   async getDownloadedEpisodes(userId: string): Promise<DownloadedEpisode[]> {
     try {
       const { data, error } = await supabase
@@ -115,9 +102,6 @@ export const DownloadService = {
       if (error) throw error;
       return (data as DownloadedEpisode[]) || [];
     } catch (error) {
-      // Error fetching downloads from Supabase (offline?)
-
-      // Fallback: scan local file system when offline
       try {
         const dir = this.getDownloadDirectory();
         const exists = await RNFS.exists(dir);
@@ -131,7 +115,6 @@ export const DownloadService = {
             file.isFile() &&
             (file.name.endsWith('.mp3') || file.name.endsWith('.m4a'))
           ) {
-            // Extract episode ID from filename
             const episodeId = file.name.replace(/\.(mp3|m4a)$/, '');
             downloads.push({
               id: episodeId,
@@ -151,7 +134,6 @@ export const DownloadService = {
     }
   },
 
-  /** Calculate total cache size for a user */
   async getTotalCacheSize(userId: string): Promise<number> {
     try {
       const { data, error } = await supabase
@@ -170,7 +152,6 @@ export const DownloadService = {
     }
   },
 
-  /** Download an audio file with progress tracking and DB integration */
   async downloadAudio(
     userId: string,
     episodeId: string,
@@ -179,35 +160,28 @@ export const DownloadService = {
     onProgress?: (progress: DownloadProgress) => void,
   ): Promise<string> {
     try {
-      // Ensure download directory exists
       await this.initializeDownloadDirectory();
 
-      // Validate userId to prevent database errors if a URL is passed instead of an ID
       if (this.isUrl(userId)) {
         throw new Error(
           'Invalid user ID provided. Expected an identifier, not a URL.',
         );
       }
 
-      // Validate episodeId to prevent database errors if a URL is passed instead of an ID
       if (this.isUrl(episodeId)) {
         throw new Error(
           'Invalid episode ID provided. Expected an identifier, not a URL.',
         );
       }
 
-      // Prevent duplicate downloads
       if (this.activeDownloads.has(episodeId)) {
         throw new Error('Episode is already being downloaded');
       }
-
-      // Return existing local path if already downloaded
       const existing = await this.getDownloadedEpisode(userId, episodeId);
       if (existing) {
         return existing.local_path;
       }
 
-      // Enforce cache size limit
       const totalSize = await this.getTotalCacheSize(userId);
       if (totalSize >= this.CACHE_SIZE_LIMIT) {
         throw new Error(
@@ -255,7 +229,7 @@ export const DownloadService = {
         if (Platform.OS === 'android') {
           const formattedSize = this.formatBytes(fileSize);
           ToastAndroid.showWithGravity(
-            `✅ ${episodeTitle} (${formattedSize})`,
+            `${episodeTitle} (${formattedSize})`,
             ToastAndroid.LONG,
             ToastAndroid.BOTTOM,
           );
@@ -284,9 +258,7 @@ export const DownloadService = {
       const filePath = this.getFilePath(filename);
       try {
         await RNFS.unlink(filePath);
-      } catch (e) {
-        // Error deleting partial file
-      }
+      } catch (e) { }
     }
   },
 
@@ -315,9 +287,7 @@ export const DownloadService = {
         try {
           const exists = await RNFS.exists(dl.local_path);
           if (exists) await RNFS.unlink(dl.local_path);
-        } catch (e) {
-          // Error deleting file
-        }
+        } catch (e) { }
       }
       const { error } = await supabase
         .from('downloads')
@@ -398,9 +368,7 @@ export const DownloadService = {
     try {
       const key = `episode_meta_${episodeId}`;
       await AsyncStorage.setItem(key, JSON.stringify(metadata));
-    } catch (error) {
-      // Error caching episode metadata
-    }
+    } catch (error) { }
   },
 
   /** Get cached episode metadata */

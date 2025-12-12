@@ -90,7 +90,7 @@ const NotificationsScreen = () => {
 
       navigation.navigate('Player', { episode });
     } else {
-      console.log('⚠️ Not an episode notification or missing data');
+
     }
   };
 

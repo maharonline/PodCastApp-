@@ -63,7 +63,7 @@ export default function MiniPlayer() {
         const downloaded = downloads.some((d: any) => d.episode_id === safeId);
         dispatch(setDownloadStatus(downloaded));
       } catch (e) {
-        console.log('Error checking episode status:', e);
+
       }
     };
 
@@ -78,7 +78,7 @@ export default function MiniPlayer() {
         await TrackPlayer.play();
       }
     } catch (e) {
-      console.error('Toggle play error:', e);
+
     }
   };
 
@@ -105,7 +105,7 @@ export default function MiniPlayer() {
         dispatch(setLikeStatus(true));
       }
     } catch (e) {
-      console.error('Error toggling like:', e);
+
       Alert.alert('Error', 'Could not update like status.');
     }
   };
@@ -126,7 +126,7 @@ export default function MiniPlayer() {
       dispatch(setPlaybackState(false));
       dispatch(setCurrentEpisode(null));
     } catch (error) {
-      console.log('Error closing mini player:', error);
+
     }
   };
 
