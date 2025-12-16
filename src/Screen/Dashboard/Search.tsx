@@ -67,6 +67,10 @@ export default function Search() {
   );
   const [refreshing, setRefreshing] = useState(false);
 
+  /* Pagination State */
+  const [displayLimit, setDisplayLimit] = useState(10);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       fetchEpisodes();
@@ -84,6 +88,8 @@ export default function Search() {
       );
       setFilteredEpisodes(filtered);
     }
+    // Reset pagination when search changes
+    setDisplayLimit(10);
   }, [searchQuery, episodes]);
 
   const loadDownloadedEpisodes = async () => {
@@ -156,6 +162,17 @@ export default function Search() {
     setRefreshing(false);
   }, [user]);
 
+  const handleLoadMore = () => {
+    if (loadingMore || displayLimit >= filteredEpisodes.length) return;
+
+    setLoadingMore(true);
+    // Simulate network delay for better UX
+    setTimeout(() => {
+      setDisplayLimit(prev => prev + 10);
+      setLoadingMore(false);
+    }, 1000);
+  };
+
   if (loading) {
     return (
       <View
@@ -198,6 +215,22 @@ export default function Search() {
     </>
   );
 
+  const renderFooter = () => {
+    if (displayLimit >= filteredEpisodes.length) return null;
+
+    return (
+      <View style={{ alignItems: 'center', marginVertical: 20 }}>
+        {loadingMore ? (
+          <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+        ) : (
+          <TouchableOpacity onPress={handleLoadMore} style={styles.loadMoreBtn}>
+            <Text style={styles.loadMoreText}>Load More</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
       <View style={styles.container}>
@@ -222,12 +255,13 @@ export default function Search() {
         </View>
 
         <FlatList
-          data={filteredEpisodes}
+          data={filteredEpisodes.slice(0, displayLimit)}
           keyExtractor={(item, idx) => item.audioUrl || String(idx)}
           renderItem={renderEpisode}
           contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
+          ListFooterComponent={renderFooter}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -381,5 +415,19 @@ const styles = StyleSheet.create({
     marginTop: 3,
     paddingHorizontal: 8,
     fontFamily: 'PublicSans-Regular',
+  },
+  loadMoreBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  loadMoreText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'PublicSans-Bold',
   },
 });
